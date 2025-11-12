@@ -2,6 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 
+// Timeout helper for async operations
+const withTimeout = (promise, ms, label = 'operation') =>
+	Promise.race([
+		promise,
+		new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms))
+	]);
+
 class TicketClaimManager {
 	constructor(client) {
 		this.client = client;
@@ -75,10 +82,12 @@ class TicketClaimManager {
 			};
 			this.saveClaims();
 
-			// Lock channel - only claimer and customer can speak
-			await this.lockChannel(channel, claimer, customer);
+			// Lock channel (guard against perms/rate-limit stalls)
+			this.client.log.debug(`[CLAIM] lockChannel start ${channel.id}`);
+			await withTimeout(this.lockChannel(channel, claimer, customer), 7000, 'lockChannel');
+			this.client.log.debug(`[CLAIM] lockChannel done ${channel.id}`);
 
-			// Send claim confirmation embed
+			// Send claim confirmation embed (non-fatal if fails)
 			const claimEmbed = new EmbedBuilder()
 				.setColor(0x00ff00)
 				.setTitle('✅ Ticket Claimed')
@@ -90,13 +99,24 @@ class TicketClaimManager {
 				.setFooter({ text: 'This ticket is now locked to the claimer and customer only.' })
 				.setTimestamp();
 
-			await channel.send({ embeds: [claimEmbed] });
+			try {
+				await withTimeout(channel.send({ embeds: [claimEmbed] }), 5000, 'channel.send');
+				this.client.log.debug(`[CLAIM] sent claim embed ${channel.id}`);
+			} catch (e) {
+				this.client.log.warn(`[CLAIM] failed to send embed in ${channel.id}: ${e.message}`);
+			}
 
 			// Start inactivity timer
 			this.startInactivityTimer(channel.id);
+			this.client.log.debug(`[CLAIM] timer started ${channel.id}`);
 
-			// Log to mod channel
-			await this.logClaim(channel, claimer, customer, 'claim');
+			// Log to mod channel (non-fatal)
+			try {
+				await withTimeout(this.logClaim(channel, claimer, customer, 'claim'), 5000, 'logClaim');
+				this.client.log.debug(`[CLAIM] logged claim ${channel.id}`);
+			} catch (e) {
+				this.client.log.warn(`[CLAIM] failed to log claim ${channel.id}: ${e.message}`);
+			}
 
 			this.client.log.info(`Ticket ${channel.id} claimed by ${claimer.user.tag}`);
 
@@ -188,34 +208,27 @@ class TicketClaimManager {
 	 */
 	async lockChannel(channel, claimer, customer) {
 		try {
-			// Get all staff members (those who can see the channel)
-			const permissions = channel.permissionOverwrites.cache;
-			
-			// Deny SEND_MESSAGES for @everyone
+			// Deny everyone from sending
 			await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
 				[PermissionFlagsBits.SendMessages]: false,
 			});
 
-			// Allow claimer to send messages
+			// Allow claimer + customer to view/send
 			await channel.permissionOverwrites.edit(claimer, {
 				[PermissionFlagsBits.SendMessages]: true,
 				[PermissionFlagsBits.ViewChannel]: true,
 			});
-
-			// Allow customer to send messages
 			await channel.permissionOverwrites.edit(customer, {
 				[PermissionFlagsBits.SendMessages]: true,
 				[PermissionFlagsBits.ViewChannel]: true,
 			});
 
-			// Deny other staff from sending but allow viewing
-			for (const [id, permission] of permissions) {
-				if (id === claimer.id || id === customer.id || id === channel.guild.roles.everyone.id || id === this.client.user.id) continue;
-				
-				// Check if this is a role (not a member)
-				const role = channel.guild.roles.cache.get(id);
-				if (role) {
-					// Staff roles can view but not send messages
+			// If you have staffRoleId in config, set them to view-only (no send)
+			if (this.config.staffRoleId) {
+				const roleIds = this.config.staffRoleId.split(',').map(s => s.trim()).filter(Boolean);
+				for (const rid of roleIds) {
+					const role = channel.guild.roles.cache.get(rid);
+					if (!role) continue;
 					await channel.permissionOverwrites.edit(role, {
 						[PermissionFlagsBits.ViewChannel]: true,
 						[PermissionFlagsBits.SendMessages]: false,
@@ -224,6 +237,7 @@ class TicketClaimManager {
 			}
 		} catch (error) {
 			this.client.log.error('Error locking channel:', error);
+			throw error; // bubble so withTimeout can catch/time out
 		}
 	}
 
@@ -232,32 +246,30 @@ class TicketClaimManager {
 	 */
 	async unlockChannel(channel) {
 		try {
-			const permissions = channel.permissionOverwrites.cache;
-
-			// Remove SEND_MESSAGES deny from @everyone
 			await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
 				[PermissionFlagsBits.SendMessages]: null,
 			});
 
-			// Restore permissions for all roles and members who had overrides
-			for (const [id, permission] of permissions) {
-				if (id === channel.guild.roles.everyone.id || id === this.client.user.id) continue;
-				
-				// Check if this is a role
-				const role = channel.guild.roles.cache.get(id);
-				if (role) {
-					// Restore role permissions - allow staff to send messages again
+			const claim = this.claims[channel.id];
+			if (claim) {
+				await channel.permissionOverwrites.delete(claim.claimerId).catch(() => {});
+				await channel.permissionOverwrites.delete(claim.customerId).catch(() => {});
+			}
+
+			if (this.config.staffRoleId) {
+				const roleIds = this.config.staffRoleId.split(',').map(s => s.trim()).filter(Boolean);
+				for (const rid of roleIds) {
+					const role = channel.guild.roles.cache.get(rid);
+					if (!role) continue;
 					await channel.permissionOverwrites.edit(role, {
 						[PermissionFlagsBits.ViewChannel]: true,
 						[PermissionFlagsBits.SendMessages]: true,
 					});
-				} else {
-					// It's a member override (claimer/customer) - remove it to restore defaults
-					await channel.permissionOverwrites.delete(id).catch(() => {});
 				}
 			}
 		} catch (error) {
 			this.client.log.error('Error unlocking channel:', error);
+			throw error;
 		}
 	}
 
