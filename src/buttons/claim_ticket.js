@@ -47,33 +47,46 @@ module.exports = class ClaimTicketButton extends Button {
 				});
 			}
 
-			// Attempt to claim the ticket
-			const result = await client.ticketClaims.claimTicket(
-				interaction.channel,
-				interaction.member,
-				customer
-			);
+				let responded = false;
+				const respond = async (msg) => {
+					if (!responded) {
+						responded = true;
+						await interaction.editReply(msg).catch(() => {});
+					}
+				};
+				// Timeout after 10 seconds
+				setTimeout(() => respond({ content: '\u274c Claim timed out. Please try again or contact an admin.' }), 10000);
+				try {
+					// Get ticket data
+					const ticket = await client.prisma.ticket.findUnique({
+						where: { id: interaction.channel.id },
+					});
+					if (!ticket) return respond({ content: '\u274c This is not a valid ticket channel.' });
 
-			if (!result.success) {
-				return await interaction.editReply({
-					content: `❌ ${result.message}`,
-				});
-			}
+					// Check if user is staff
+					const { isStaff } = require('../lib/users');
+					if (!await isStaff(interaction.guild, interaction.member.id)) {
+						return respond({ content: '\u274c Only staff members can claim tickets.' });
+					}
 
-			// Delete the original message with the claim button
-			if (interaction.message.deletable) {
-				await interaction.message.delete().catch(() => {});
-			}
+					// Get customer
+					const customer = await interaction.guild.members.fetch(ticket.createdById).catch(() => null);
+					if (!customer) return respond({ content: '\u274c Could not find the ticket creator.' });
 
-			await interaction.editReply({
-				content: '✅ You have successfully claimed this ticket!',
-			});
+					// Attempt to claim the ticket
+					const result = await client.ticketClaims.claimTicket(
+						interaction.channel,
+						interaction.member,
+						customer
+					);
+					if (!result.success) return respond({ content: `\u274c ${result.message}` });
 
-		} catch (error) {
-			client.log.error('Error in claim ticket button:', error);
-			await interaction.editReply({
-				content: '❌ An error occurred while claiming the ticket.',
-			}).catch(() => {});
-		}
-	}
-};
+					// Delete the original message with the claim button
+					if (interaction.message.deletable) {
+						await interaction.message.delete().catch(() => {});
+					}
+					return respond({ content: '\u2705 You have successfully claimed this ticket!' });
+				} catch (error) {
+					client.log.error('Error in claim ticket button:', error);
+					return respond({ content: '\u274c An error occurred while claiming the ticket.' });
+				}
