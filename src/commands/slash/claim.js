@@ -34,7 +34,7 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 			const invoiceId = interaction.options.getString('invoiceid', true);
 			
 			// ===== CONFIGURATION =====
-			const configPath = path.join(process.cwd(), 'custom', 'claim-config.json');
+			const configPath = path.join(__dirname, '../../../custom/claim-config.json');
 			let config = {
 				ordersChannelId: '1234567890123456789',
 				buyerRoleId: '1234567890123456789',
@@ -52,8 +52,8 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 			const MESSAGE_SEARCH_LIMIT = config.messageSearchLimit || 25;
 			
 			// ===== LOAD DATA FILES =====
-			const claimsPath = path.join(process.cwd(), 'data', 'claims.json');
-			const profilesPath = path.join(process.cwd(), 'data', 'profiles.json');
+			const claimsPath = path.join(__dirname, '../../../data/claims.json');
+			const profilesPath = path.join(__dirname, '../../../data/profiles.json');
 			
 			let claims = {};
 			let profiles = {};
