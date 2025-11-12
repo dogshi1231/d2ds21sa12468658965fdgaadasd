@@ -88,6 +88,19 @@ module.exports = class ClaimTicketButton extends Button {
           }) || [];
           await interaction.message.edit({ components: disabledRow });
         }
+          client.log.info(`[CLAIM] start channel=${interaction.channel.id} staff=${interaction.user.id}`);
+          const claimPromise = client.ticketClaims.claimTicket(
+            interaction.channel,
+            interaction.member,
+            customer
+          );
+          const result = await Promise.race([
+            claimPromise,
+            new Promise(resolve =>
+              setTimeout(() => resolve({ success: false, message: '⏱️ Claim operation timed out.' }), 7000)
+            )
+          ]);
+          client.log.info(`[CLAIM] end success=${!!result?.success} msg="${result?.message || ''}"`);
       } catch (err) {
         client.log.warn('Could not remove/disable claim button:', err);
       }
