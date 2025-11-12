@@ -698,6 +698,11 @@ module.exports = class TicketManager {
 			this.$count.categories[categoryId].total++;
 			this.$count.categories[categoryId][creator.id]++;
 
+			// Track ticket in customer profile
+			if (this.client.profileManager) {
+				this.client.profileManager.recordTicket(creator.id, ticket.id);
+			}
+
 			if (category.cooldown) {
 				const cacheKey = `cooldowns/category-member:${category.id}-${ticket.createdById}`;
 				const expiresAt = ticket.createdAt.getTime() + category.cooldown;
@@ -714,6 +719,38 @@ module.exports = class TicketManager {
 						data: { referencesMessageId: message.id },
 						where: { id: ticket.id },
 					});
+				}
+			}
+
+			// Automatically send claim button
+			if (this.client.ticketClaims) {
+				try {
+					const claimEmbed = new ExtendedEmbedBuilder({
+						iconURL: guild.iconURL(),
+						text: category.guild.footer,
+					})
+						.setColor(0x5865F2)
+						.setTitle('🎫 Ticket Available')
+						.setDescription('This ticket is ready to be claimed by a staff member.\n\nClick the button below to claim this ticket.')
+						.setFooter({ text: 'Claiming will lock the ticket to you and the customer only.' })
+						.setTimestamp();
+
+					const claimButton = new ButtonBuilder()
+						.setCustomId(JSON.stringify({ action: 'claim_ticket' }))
+						.setLabel('Claim Ticket')
+						.setStyle(ButtonStyle.Primary)
+						.setEmoji('✋');
+
+					const claimRow = new ActionRowBuilder().addComponents(claimButton);
+
+					await channel.send({
+						embeds: [claimEmbed],
+						components: [claimRow],
+					});
+
+					this.client.log.debug('Automatically added claim button to new ticket', channel.id);
+				} catch (claimError) {
+					this.client.log.error('Failed to automatically add claim button:', claimError);
 				}
 			}
 
@@ -913,6 +950,16 @@ module.exports = class TicketManager {
 			},
 			userId: interaction.user.id,
 		});
+
+		// Track staff activity for inactivity monitoring
+		if (this.client.staffManager) {
+			await this.client.staffManager.recordActivity(interaction.user.id, 'ticket_claim');
+		}
+
+		// Track ticket claim in analytics
+		if (this.client.analytics) {
+			this.client.analytics.trackTicketClaim(interaction.user.id);
+		}
 	}
 
 	/**
@@ -1272,6 +1319,11 @@ module.exports = class TicketManager {
 		}
 
 		const guild = this.client.guilds.cache.get(ticket.guildId);
+
+		// Clean up ticket claim data
+		if (this.client.ticketClaims) {
+			await this.client.ticketClaims.cleanupTicket(ticketId);
+		}
 
 		if (channel?.deletable) {
 			const member = closedBy ? channel.guild.members.cache.get(closedBy) : null;

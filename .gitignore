@@ -1,12 +1,27 @@
 # directories
 /.history/
 /node_modules/
-/prisma/
+/prisma/data/
 /user/
+/logs/
 .idea/
+
 # files
-*.env*
+*.env
+!.env.example
 *.db*
+*.sqlite*
 *.log
 *.DS_Store
 summary.md
+
+# data files (contain user data)
+/data/claims.json
+/data/profiles.json
+/data/order-analytics.json
+/data/inviteCache.json
+/data/staffActivity.json
+/data/vouches.json
+/data/dailyStats.json
+/data/inviteTracking.json
+/data/invite_tracking.json

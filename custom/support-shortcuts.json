@@ -1,0 +1,29 @@
+{
+  "supportChannelId": "1370947258228670515",
+  "shortcuts": {
+    "toolsupport": {
+      "messageId": "1382136860469362758",
+      "description": "Tool support resources"
+    },
+    "allfix": {
+      "messageId": "1382136565333229729",
+      "description": "All-in-one fix guide"
+    },
+    "dcontrol": {
+      "messageId": "1382136249220989038",
+      "description": "DirectControl guide"
+    },
+    "vpn": {
+      "messageId": "1382136193432686705",
+      "description": "VPN/Proxy troubleshooting"
+    },
+    "updates": {
+      "messageId": "1382136943512522892",
+      "description": "Update information"
+    },
+    "runtimes": {
+      "messageId": "1386199762671374357",
+      "description": "Visual C++ Runtimes"
+    }
+  }
+}

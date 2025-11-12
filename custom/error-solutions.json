@@ -1,0 +1,96 @@
+{
+  "vpn_proxy": {
+    "title": "🛡️ VPN / Proxy Detected",
+    "description": "The loader detected a VPN or proxy connection which is not allowed.",
+    "fixes": [
+      "**Disable your VPN/Proxy** - Turn off any VPN, proxy, or network tunneling software",
+      "**Check browser extensions** - Disable VPN/proxy browser extensions",
+      "**Restart your router** - Some routers have built-in VPN features that need to be disabled",
+      "**Clear DNS cache** - Run `ipconfig /flushdns` in Command Prompt",
+      "**Check for system-wide VPN** - Look in Windows Settings → Network & Internet → VPN"
+    ],
+    "externalLink": null,
+    "color": "#e74c3c"
+  },
+  "driver_failed": {
+    "title": "🔧 Driver Initialization Failed",
+    "description": "The loader's driver failed to initialize properly.",
+    "fixes": [
+      "**Restart your PC** - A simple restart often fixes driver issues",
+      "**Disable antivirus temporarily** - Windows Defender or third-party antivirus may be blocking the driver",
+      "**Run as Administrator** - Right-click the loader and select 'Run as administrator'",
+      "**Check Secure Boot** - Disable Secure Boot in BIOS if enabled",
+      "**Reinstall the loader** - Delete and re-download the loader",
+      "**Check Windows version** - Ensure you're running a supported Windows version"
+    ],
+    "externalLink": null,
+    "color": "#e67e22"
+  },
+  "invalid_key": {
+    "title": "🔑 Invalid Product Key",
+    "description": "The product key you entered is not valid or has expired.",
+    "fixes": [
+      "**Double-check your key** - Make sure you copied it correctly without extra spaces",
+      "**Check key expiration** - Your key may have expired, check your purchase date",
+      "**Verify purchase email** - Look for the key in your original purchase confirmation",
+      "**Contact support** - If you believe this is an error, create a ticket with your invoice ID",
+      "**Check for typos** - Keys are case-sensitive and must match exactly"
+    ],
+    "externalLink": null,
+    "color": "#f39c12"
+  },
+  "no_response": {
+    "title": "⏳ No Response from Loader",
+    "description": "The loader is not responding or appears frozen.",
+    "fixes": [
+      "**Wait 30-60 seconds** - The loader may still be initializing",
+      "**Check Task Manager** - End any existing loader processes and restart",
+      "**Disable antivirus** - Your antivirus may be quarantining the loader",
+      "**Check firewall** - Allow the loader through Windows Firewall",
+      "**Run compatibility mode** - Right-click → Properties → Compatibility → Windows 8",
+      "**Redownload the loader** - Your file may be corrupted"
+    ],
+    "externalLink": null,
+    "color": "#9b59b6"
+  },
+  "hwid_mismatch": {
+    "title": "💻 HWID Mismatch",
+    "description": "Your hardware ID doesn't match the one registered to your key.",
+    "fixes": [
+      "**Use `/hwid` command** - Request a HWID reset (max 2 per 30 days)",
+      "**Check if you changed hardware** - Replacing major components changes your HWID",
+      "**Don't share your key** - Each key is tied to one unique PC",
+      "**Wait for reset cooldown** - If you've used both resets, you must wait 30 days",
+      "**Contact support** - If this is unexpected, create a ticket with your invoice ID"
+    ],
+    "externalLink": null,
+    "color": "#3498db"
+  },
+  "defender_issues": {
+    "title": "🛡️ Windows Defender Issues",
+    "description": "Windows Defender is blocking or quarantining the loader.",
+    "fixes": [
+      "**Add exclusion** - Add the loader folder to Windows Defender exclusions",
+      "**Disable Real-Time Protection** - Temporarily turn off real-time protection",
+      "**Check quarantine** - Restore the loader from Defender's quarantine",
+      "**Run as Administrator** - Right-click and select 'Run as administrator'",
+      "**Disable Cloud Protection** - Turn off cloud-delivered protection in Defender settings"
+    ],
+    "externalLink": "https://support.microsoft.com/en-us/windows/add-an-exclusion-to-windows-security-811816c0-4dfd-af4a-47e4-c301afe13b26",
+    "color": "#1abc9c"
+  },
+  "auto_close": {
+    "title": "⚠️ Loader Closed Automatically",
+    "description": "The loader closes immediately after opening.",
+    "fixes": [
+      "**Check antivirus logs** - Your antivirus may be terminating the process",
+      "**Disable all security software** - Turn off Windows Defender and any third-party antivirus",
+      "**Run as Administrator** - Right-click the loader and select 'Run as administrator'",
+      "**Check for conflicting software** - Close any cheat detection software or anti-cheat programs",
+      "**Reinstall Visual C++ Runtimes** - Use `.runtimes` command for download link",
+      "**Check Windows Event Viewer** - Look for crash logs to identify the issue"
+    ],
+    "externalLink": null,
+    "color": "#e74c3c"
+  }
+}

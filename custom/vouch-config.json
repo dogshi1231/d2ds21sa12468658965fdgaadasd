@@ -1,0 +1,8 @@
+{
+  "vouchesChannelId": "1351359584601636897",
+  "rewardPercentage": 5,
+  "modLogChannelId": "1437223214534361098",
+  "timeoutMinutes": 10,
+  "minimumRatingForReward": 3,
+  "comment": "timeoutMinutes: How long customers have to respond before vouch expires. minimumRatingForReward: Minimum stars (1-5) required to give staff reward."
+}

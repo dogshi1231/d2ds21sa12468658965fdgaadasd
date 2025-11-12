@@ -27,6 +27,8 @@ module.exports = class Client extends FrameworkClient {
 						GatewayIntentBits.Guilds,
 						GatewayIntentBits.GuildMembers,
 						GatewayIntentBits.GuildMessages,
+						GatewayIntentBits.GuildMessageReactions,
+						GatewayIntentBits.GuildInvites,
 					],
 					...(process.env.PUBLIC_BOT !== 'true' ? [GatewayIntentBits.GuildPresences] : []),
 				],
@@ -34,6 +36,7 @@ module.exports = class Client extends FrameworkClient {
 					Partials.Channel,
 					Partials.Message,
 					Partials.Reaction,
+					Partials.User,
 				],
 				shards: 'auto',
 				waitGuildTimeout: ms('1h'),
@@ -79,9 +82,47 @@ module.exports = class Client extends FrameworkClient {
 
 			this.tickets = new TicketManager(this);
 
-			this.supers = (process.env.SUPER ?? '').split(',');
+			// Initialize ticket claim manager
+			const TicketClaimManager = require('../custom/tickets');
+			this.ticketClaims = new TicketClaimManager(this);
 
-			/** @param {import('discord.js/typings').Interaction} interaction */
+			// Initialize rewards manager
+			const RewardsManager = require('../custom/rewards');
+			this.rewards = new RewardsManager(this);
+
+			// Initialize profile manager
+			const ProfileManager = require('../custom/profiles');
+			this.profileManager = new ProfileManager(this);
+
+			// Initialize support requests manager
+			const SupportRequestManager = require('../custom/support-requests');
+			this.supportRequests = new SupportRequestManager(this);
+
+			// Initialize order analytics manager
+			const OrderAnalytics = require('../custom/order-analytics');
+			this.orderAnalytics = new OrderAnalytics(this);
+
+		// Initialize vouch system
+		const VouchSystem = require('../custom/vouch-system');
+		this.vouchSystem = new VouchSystem(this);
+
+		// Initialize invite tracker
+		const InviteTracker = require('../custom/invite-tracker');
+		this.inviteTracker = new InviteTracker(this);
+
+		// Initialize HWID manager
+		const HWIDManager = require('../custom/hwid-manager');
+		this.hwidManager = new HWIDManager(this);
+
+		// Initialize staff manager
+		const StaffManager = require('../custom/staff-manager');
+		this.staffManager = new StaffManager(this);
+
+		// Initialize analytics
+		const Analytics = require('../custom/analytics');
+		this.analytics = new Analytics(this);
+
+		this.supers = (process.env.SUPER ?? '').split(',');			/** @param {import('discord.js/typings').Interaction} interaction */
 			this.commands.interceptor = async interaction => {
 				if (!interaction.inGuild()) return;
 				const id = interaction.guildId;

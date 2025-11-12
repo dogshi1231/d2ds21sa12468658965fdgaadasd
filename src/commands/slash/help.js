@@ -28,17 +28,70 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 		const staff = await isStaff(interaction.guild, interaction.member.id);
 		const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
 		const getMessage = client.i18n.getLocale(settings.locale);
-		const commands = client.application.commands.cache
-			.filter(c => c.type === 1)
-			.map(c => `> </${c.name}:${c.id}>: ${c.description}`)
-			.join('\n');
+		
+		// Categorize commands
+		const categories = {
+			'🎫 Ticket Management': ['new', 'close', 'force-close', 'add', 'remove', 'move', 'priority', 'transfer', 'rename', 'topic', 'transcript', 'tickets', 'tag', 'release'],
+			'💰 Analytics & Stats': ['analytics', 'topbuyers', 'orderanalytics', 'topcustomers', 'topinviters'],
+			'👥 Staff Management': ['claim', 'addclaimbutton', 'vouch', 'force', 'balance', 'sbal', 'leaderboard', 'vouchstats', 'linkinvoice'],
+			'🛠️ Customer Support': ['hwid', 'replacement', 'checkresets', 'supportaction', 'profile', 'processorder'],
+			'⚠️ Moderation': ['warn'],
+			'ℹ️ Information': ['help'],
+		};
+
+		const allCommands = client.application.commands.cache.filter(c => c.type === 1);
+		const fields = [];
+
+		// Build fields for each category
+		for (const [categoryName, commandNames] of Object.entries(categories)) {
+			const categoryCommands = commandNames
+				.map(name => allCommands.find(c => c.name === name))
+				.filter(c => c) // Filter out any commands that don't exist
+				.map(c => `> </${c.name}:${c.id}>: ${c.description}`);
+
+			if (categoryCommands.length > 0) {
+				// Check if we need to split this category into multiple fields
+				const fullText = categoryCommands.join('\n');
+				
+				if (fullText.length <= 1000) {
+					fields.push({
+						name: categoryName,
+						value: fullText,
+					});
+				} else {
+					// Split into multiple fields if too long
+					let currentChunk = [];
+					let currentLength = 0;
+					let partNumber = 1;
+
+					for (const cmd of categoryCommands) {
+						const cmdLength = cmd.length + 1;
+						
+						if (currentLength + cmdLength > 1000) {
+							fields.push({
+								name: `${categoryName} (${partNumber})`,
+								value: currentChunk.join('\n'),
+							});
+							currentChunk = [cmd];
+							currentLength = cmdLength;
+							partNumber++;
+						} else {
+							currentChunk.push(cmd);
+							currentLength += cmdLength;
+						}
+					}
+
+					if (currentChunk.length > 0) {
+						fields.push({
+							name: `${categoryName}${partNumber > 1 ? ` (${partNumber})` : ''}`,
+							value: currentChunk.join('\n'),
+						});
+					}
+				}
+			}
+		}
+		
 		const newCommand = client.application.commands.cache.find(c => c.name === 'new');
-		const fields = [
-			{
-				name: getMessage('commands.slash.help.response.commands'),
-				value: commands,
-			},
-		];
 
 		if (staff) {
 			fields.unshift(

@@ -1,0 +1,17 @@
+{
+  "vouchesChannelId": "1351359584601636897",
+  "costReference": {
+    "Panel": 5.00,
+    "VPS": 3.00,
+    "Dedicated Server": 10.00,
+    "Minecraft Server": 4.00,
+    "Bot Hosting": 2.50,
+    "Web Hosting": 3.50,
+    "Domain": 1.00,
+    "SSL Certificate": 0.50,
+    "Custom Development": 15.00,
+    "Support Package": 5.00
+  },
+  "profitPercentage": 5,
+  "ownerIds": ["1216178049339359272"]
+}

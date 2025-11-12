@@ -1,0 +1,27 @@
+{
+  "1216178049339359272": {
+    "userId": "1216178049339359272",
+    "emails": [],
+    "invoices": [],
+    "totalSpent": 0,
+    "firstPurchase": null,
+    "lastPurchase": null,
+    "lastProduct": null,
+    "tickets": {
+      "total": 3,
+      "lastTicketDate": "2025-11-12T07:06:56.833Z",
+      "ticketIds": [
+        "1438053884445589564",
+        "1438061693271019641",
+        "1438062495586844774"
+      ]
+    },
+    "support": {
+      "hwidResets": 1,
+      "replacements": 0,
+      "keySwaps": 0
+    },
+    "warnings": [],
+    "joinedDate": "2025-11-12T05:25:52.724Z"
+  }
+}

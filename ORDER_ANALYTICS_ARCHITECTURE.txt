@@ -1,0 +1,248 @@
+# Order Analytics System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     ORDER ANALYTICS SYSTEM                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  1. ORDER DETECTION                                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Order Embed Posted → messageCreate-orders.js Listener          │
+│           ↓                                                      │
+│  Extract Data (invoice, product, email, price)                  │
+│           ↓                                                      │
+│  Validate (must have invoice ID + price)                        │
+│           ↓                                                      │
+│  Check if already processed                                     │
+│           ↓                                                      │
+│  [CONTINUE TO PROCESSING]                                       │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  2. PROFIT CALCULATION                                           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Load product-costs.json                                        │
+│           ↓                                                      │
+│  Match product name (exact or partial)                          │
+│           ↓                                                      │
+│  Get cost → Apply quantity                                      │
+│           ↓                                                      │
+│  Calculate: profit = price - cost                               │
+│           ↓                                                      │
+│  Calculate: margin = (profit / price) * 100                     │
+│           ↓                                                      │
+│  [CONTINUE TO LINKING]                                          │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  3. USER LINKING                                                 │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Check invoice_links.json for email                             │
+│           ↓                                                      │
+│  ┌─────────────────┐         ┌──────────────────┐              │
+│  │ Email Found?    │ YES →   │ Get Discord ID   │              │
+│  └─────────────────┘         └──────────────────┘              │
+│           ↓ NO                        ↓                         │
+│  userId = null              userId = "123456789"                │
+│           ↓                           ↓                          │
+│  [CONTINUE TO INVITE TRACKING]                                  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  4. INVITE TRACKING                                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐         ┌──────────────────┐              │
+│  │ User ID known?  │ YES →   │ Check invites    │              │
+│  └─────────────────┘         └──────────────────┘              │
+│           ↓ NO                        ↓                         │
+│  Skip invite credit        ┌────────────────────┐               │
+│           ↓                │ Inviter found?     │               │
+│  [CONTINUE TO LOGGING]     └────────────────────┘               │
+│                                     ↓ YES                        │
+│                            Credit profit to inviter             │
+│                                     ↓                            │
+│                            inviterUserId = "987654321"          │
+│                                     ↓                            │
+│                            [CONTINUE TO LOGGING]                │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  5. PROFIT LOGGING                                               │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Determine color based on margin:                               │
+│    • Green  (>30%) = High profit                                │
+│    • Orange (10-30%) = Medium profit                            │
+│    • Red    (<10%) = Low profit                                 │
+│           ↓                                                      │
+│  Create embed with:                                             │
+│    • Invoice ID, Product, Sale Price                            │
+│    • Cost, Profit, Margin                                       │
+│    • Customer email                                             │
+│    • Discord mention (if linked)                                │
+│    • Inviter mention (if tracked)                               │
+│           ↓                                                      │
+│  Post to channel: 1437178768752902145                           │
+│           ↓                                                      │
+│  [CONTINUE TO STORAGE]                                          │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  6. DATA STORAGE                                                 │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Save to order_analytics.json:                                  │
+│    • Full order record                                          │
+│    • Update totalRevenue                                        │
+│    • Update totalProfit                                         │
+│    • Update totalCost                                           │
+│    • Increment orderCount                                       │
+│           ↓                                                      │
+│  ✅ Order Processing Complete                                   │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────┐
+│  INVOICE CLAIMING FLOW                                           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  User runs: /claim ABC123                                       │
+│           ↓                                                      │
+│  Fetch message from orders channel                              │
+│           ↓                                                      │
+│  Extract email from embed                                       │
+│           ↓                                                      │
+│  Save to invoice_links.json:                                    │
+│    { "userId": ["email1"], "invoices": ["ABC123"] }            │
+│           ↓                                                      │
+│  Update order_analytics.json:                                   │
+│    orders["ABC123"].userId = "123456789"                        │
+│           ↓                                                      │
+│  Save to profiles.json (legacy)                                 │
+│           ↓                                                      │
+│  Update customers.json (profile manager)                        │
+│           ↓                                                      │
+│  ✅ Invoice Claimed + User Linked                               │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────┐
+│  INVITE TRACKING FLOW                                            │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Bot starts → ready-invite-cache.js                             │
+│           ↓                                                      │
+│  Cache all guild invites                                        │
+│           ↓                                                      │
+│  Member joins → guildMemberAdd-invite.js                        │
+│           ↓                                                      │
+│  Compare cached invites with current                            │
+│           ↓                                                      │
+│  Find which invite's uses increased                             │
+│           ↓                                                      │
+│  Save to invite_tracking.json:                                  │
+│    members["123456789"] = {                                     │
+│      inviterId: "987654321",                                    │
+│      inviteCode: "abc123"                                       │
+│    }                                                             │
+│           ↓                                                      │
+│  Update invite cache                                            │
+│           ↓                                                      │
+│  When member makes purchase:                                    │
+│    → Credit profit to inviter                                   │
+│    → Update invites["987654321"].totalProfit                    │
+│           ↓                                                      │
+│  ✅ Invite Tracked + Profit Credited                            │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────┐
+│  DATA FILE RELATIONSHIPS                                         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  order_analytics.json                                           │
+│    ↓ contains                                                    │
+│  orders[invoiceId] = {                                          │
+│    invoiceId, product, email, price,                            │
+│    cost, profit, profitMargin,                                  │
+│    userId ←─────────┐                                           │
+│    inviterUserId ←──┼────┐                                      │
+│  }                  │    │                                       │
+│                     │    │                                       │
+│  invoice_links.json │    │                                      │
+│    ↓ maps           │    │                                       │
+│  [userId] = {       │    │                                       │
+│    emails: [],      │    │                                       │
+│    invoices: [] ────┘    │                                       │
+│  }                       │                                       │
+│                          │                                       │
+│  invite_tracking.json    │                                      │
+│    ↓ tracks              │                                       │
+│  invites[inviterId] = {  │                                      │
+│    totalInvites,         │                                       │
+│    totalProfit ──────────┘                                       │
+│  }                                                               │
+│  members[userId] = {                                            │
+│    inviterId,                                                    │
+│    inviteCode                                                    │
+│  }                                                               │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────┐
+│  COMMAND OUTPUTS                                                 │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  /orderanalytics → Shows:                                       │
+│    • Total orders, revenue, profit, cost                        │
+│    • Average order value                                        │
+│    • Overall profit margin                                      │
+│    • Recent 5 orders with profit                                │
+│                                                                  │
+│  /topcustomers → Shows:                                         │
+│    • Top 10 customers by total spent                            │
+│    • Total orders per customer                                  │
+│    • Average order value                                        │
+│    • Discord linking status                                     │
+│                                                                  │
+│  /topinviters → Shows:                                          │
+│    • Top 10 inviters by profit generated                        │
+│    • Total invites per user                                     │
+│    • Total profit from invited members                          │
+│    • Average profit per invite                                  │
+│                                                                  │
+│  /processorder <messageId> → Performs:                          │
+│    • Manual order extraction                                    │
+│    • Profit calculation                                         │
+│    • User linking                                               │
+│    • Profit logging                                             │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+
+LEGEND:
+  → = Data flow
+  ↓ = Next step
+  ✅ = Complete
+  ┌─┐ = Process box
+  │ │ = Connection
+```

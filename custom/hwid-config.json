@@ -1,0 +1,6 @@
+{
+  "reviewChannelId": "1373025638835028130",
+  "botLogsChannelId": "YOUR_BOT_LOGS_CHANNEL_ID",
+  "cooldownHours": 24,
+  "maxPendingRequests": 3
+}

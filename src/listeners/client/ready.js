@@ -27,12 +27,30 @@ module.exports = class extends Listener {
 		process.title = 'tickets';
 		client.log.success('Connected to Discord as "%s" over %d shards', client.user.tag, client.ws.shards.size);
 
-		await client.initAfterLogin();
+	await client.initAfterLogin();
 
-		// fill cache
-		await sync(client);
+	// fill cache
+	await sync(client);
 
-		if (process.env.PUBLISH_COMMANDS === 'true') {
+	// Initialize invite tracker
+	if (client.inviteTracker) {
+		client.log.info('Initializing invite tracking system...');
+		await client.inviteTracker.initialize();
+	}
+
+	// Initialize staff manager and start inactivity monitoring
+	if (client.staffManager) {
+		client.log.info('Starting staff inactivity monitoring...');
+		await client.staffManager.startInactivityMonitoring();
+	}
+
+	// Initialize analytics and start automated reporting
+	if (client.analytics) {
+		client.log.info('Starting analytics automated reporting...');
+		await client.analytics.startAutomatedReporting(client.guilds.cache.first()?.id);
+	}
+
+	if (process.env.PUBLISH_COMMANDS === 'true') {
 			client.log.info('Automatically publishing commands...');
 			client.commands.publish()
 				.then(commands => client.log.success('Published %d commands', commands?.size))

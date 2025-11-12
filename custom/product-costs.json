@@ -1,0 +1,42 @@
+{
+  "products": {
+    "1 Day": {
+      "cost": 100,
+      "category": "subscription"
+    },
+    "1 Week": {
+      "cost": 500,
+      "category": "subscription"
+    },
+    "1 Month": {
+      "cost": 1500,
+      "category": "subscription"
+    },
+    "Lifetime": {
+      "cost": 5000,
+      "category": "subscription"
+    },
+    "HWID Reset": {
+      "cost": 0,
+      "category": "service"
+    },
+    "Key Replacement": {
+      "cost": 0,
+      "category": "service"
+    }
+  },
+  "categories": {
+    "subscription": {
+      "defaultCost": 1000
+    },
+    "service": {
+      "defaultCost": 0
+    },
+    "bundle": {
+      "defaultCost": 2000
+    }
+  },
+  "profitChannelId": "1437178768752902145",
+  "orderChannelIds": [],
+  "comment": "All costs are in cents. Add specific products above or they'll use category defaults."
+}

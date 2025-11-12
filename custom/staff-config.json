@@ -1,0 +1,8 @@
+{
+  "inactivityChannelId": "1437175400953544734",
+  "inactivityHours": 72,
+  "warningLimit": 3,
+  "warningExpiryDays": 30,
+  "checkIntervalHours": 6,
+  "staffRoleIds": []
+}

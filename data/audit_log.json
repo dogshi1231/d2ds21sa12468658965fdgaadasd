@@ -1,0 +1,28 @@
+[
+  {
+    "type": "vouch",
+    "staffId": "1216178049339359272",
+    "customerId": "1216178049339359272",
+    "ticketId": "1438034254851477524",
+    "rating": 5,
+    "comment": "1",
+    "product": "N/A",
+    "cost": 400,
+    "rewardAmount": 20,
+    "invoiceId": "043c869c-6ff4-4712-9650-4d43f25d30bb",
+    "timestamp": "2025-11-12T05:15:15.969Z"
+  },
+  {
+    "type": "vouch",
+    "staffId": "1216178049339359272",
+    "customerId": "1216178049339359272",
+    "ticketId": "1438034537195241572",
+    "rating": 5,
+    "comment": "1",
+    "product": "N/A",
+    "cost": 400,
+    "rewardAmount": 4,
+    "invoiceId": "043c869c-6ff4-4712-9650-4d43f25d30bb",
+    "timestamp": "2025-11-12T05:16:09.224Z"
+  }
+]
