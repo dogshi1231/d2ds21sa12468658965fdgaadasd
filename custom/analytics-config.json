@@ -13,6 +13,12 @@
     "lifetime": 50,
     "monthly": 20,
     "weekly": 10,
+    "bo6 internal day": 1,
+    "bo6 internal week": 5,
+    "bo6 internal month": 9,
+    "bo6 external day": 1,
+    "bo6 external week": 5,
+    "bo6 external month": 9,
     "default": 5
   },
   "voiceChannelIds": [],
