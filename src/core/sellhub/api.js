@@ -67,6 +67,29 @@ class SellhubAPI {
   _patch(path, body) { return this._request('PATCH', path, body); }
   _delete(path) { return this._request('DELETE', path); }
 
+  async _tryPaths(method, paths, body) {
+    let lastErr;
+    for (const p of paths) {
+      try {
+        switch (method) {
+          case 'GET': return await this._get(p);
+          case 'POST': return await this._post(p, body);
+          case 'PUT': return await this._put(p, body);
+          case 'PATCH': return await this._patch(p, body);
+          case 'DELETE': return await this._delete(p);
+        }
+      } catch (e) {
+        lastErr = e;
+        if (e?.status === 404) {
+          if (process.env.SELLHUB_DEBUG === '1') console.warn(`[SellhubAPI] 404 on ${p}, trying next variant`);
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw lastErr || new Error('All endpoint variants failed');
+  }
+
   // Store
   getStore() { return this._get('/store'); }
   getStoreDetails() { return this._get('/store/details'); }
@@ -103,9 +126,15 @@ class SellhubAPI {
   getCategories() { return this._get('/categories'); }
 
   // Coupons
-  getCoupons() { return this._get('/coupons'); }
-  createCoupon(payload) { return this._post('/coupons', payload); }
-  deleteCoupon(id) { return this._delete(`/coupons/${id}`); }
+  getCoupons() {
+    return this._tryPaths('GET', ['/coupons', '/coupon', '/discounts', '/v1/coupons']);
+  }
+  createCoupon(payload) {
+    return this._tryPaths('POST', ['/coupons', '/coupon', '/discounts', '/v1/coupons'], payload);
+  }
+  deleteCoupon(id) {
+    return this._tryPaths('DELETE', [`/coupons/${id}`, `/coupon/${id}`, `/discounts/${id}`, `/v1/coupons/${id}`]);
+  }
 
   // Groups
   getGroups() { return this._get('/groups'); }
