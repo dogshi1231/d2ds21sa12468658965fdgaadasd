@@ -10,18 +10,18 @@ module.exports = class AddTransactionSlashCommand extends SlashCommand {
       dmPermission: false,
       name,
       options: [
-        { name: 'side', type: ApplicationCommandOptionType.String, required: true, choices: [
+        { name: 'side', description: 'Buy or sell', type: ApplicationCommandOptionType.String, required: true, choices: [
           { name: 'buy', value: 'buy' },
           { name: 'sell', value: 'sell' },
         ]},
-        { name: 'price', type: ApplicationCommandOptionType.Number, required: true },
-        { name: 'type', type: ApplicationCommandOptionType.String, required: true },
-        { name: 'quantity', type: ApplicationCommandOptionType.Integer, required: false },
-        { name: 'mode', type: ApplicationCommandOptionType.String, required: false, choices: [
+        { name: 'price', description: 'Unit price in USD', type: ApplicationCommandOptionType.Number, required: true },
+        { name: 'type', description: 'Item or symbol name', type: ApplicationCommandOptionType.String, required: true },
+        { name: 'quantity', description: 'Units to buy/sell', type: ApplicationCommandOptionType.Integer, required: false },
+        { name: 'mode', description: 'Matching mode (FIFO/LIFO)', type: ApplicationCommandOptionType.String, required: false, choices: [
           { name: 'FIFO', value: 'FIFO' },
           { name: 'LIFO', value: 'LIFO' },
         ]},
-        { name: 'notes', type: ApplicationCommandOptionType.String, required: false },
+        { name: 'notes', description: 'Optional notes for this transaction', type: ApplicationCommandOptionType.String, required: false },
       ],
     });
   }
