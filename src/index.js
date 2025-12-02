@@ -113,8 +113,9 @@ try {
 	const db = require('./core/database');
 
 	client.analytics = new AnalyticsEngine({ client, db });
-	if (process.env.SELLHUB_KEY) {
-		client.sellhub = new SellhubAPI(process.env.SELLHUB_KEY);
+	const SELLHUB_API_KEY = process.env.SELLHUB_API_KEY || process.env.SELLHUB_KEY;
+	if (SELLHUB_API_KEY) {
+		client.sellhub = new SellhubAPI(SELLHUB_API_KEY);
 		log.info('Sellhub API initialized');
 	} else {
 		log.debug('SELLHUB_KEY not set; Sellhub API disabled');

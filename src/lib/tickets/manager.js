@@ -1454,5 +1454,21 @@ module.exports = class TicketManager {
 			userId: closedBy || this.client.user.id,
 		});
 
+		// PHASE 4: Ensure transcript is generated and sent to archive channel
+		try {
+			const ARCHIVE_CHANNEL_ID = '1371320221469511744';
+			const archiveChannel = await this.client.channels.fetch(ARCHIVE_CHANNEL_ID).catch(() => null);
+			if (archiveChannel && archiveChannel.isTextBased()) {
+				const { buildTranscriptAttachment } = require('../../utils/transcript-export');
+				const { attachment } = await buildTranscriptAttachment(this.client, ticket.id);
+				await archiveChannel.send({
+					content: `🎟️ Ticket Transcript\nTicket ID: ${ticket.id}\nOpened by: <@${ticket.createdById}>\nClosed by: ${ticket.closedById ? `<@${ticket.closedById}>` : 'System'}`,
+					files: [attachment],
+				});
+			}
+		} catch (e) {
+			this.client.log.error('Failed to auto-send transcript:', e);
+		}
+
 	}
 };

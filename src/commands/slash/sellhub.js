@@ -1,79 +1,261 @@
 const { SlashCommand } = require('@eartharoid/dbf');
-const { ApplicationCommandOptionType, MessageFlags } = require('discord.js');
+const { ApplicationCommandOptionType, MessageFlags, EmbedBuilder } = require('discord.js');
+const { hasHigherRole } = require('../../utils/roles');
+const { logSellhubEvent } = require('../../utils/sellhub-log');
 
 module.exports = class SellhubSlashCommand extends SlashCommand {
   constructor(client, options) {
     const name = 'sellhub';
     super(client, {
       ...options,
-      description: 'Sellhub actions: products list, invoices complete/refund',
+      description: 'Sellhub management',
       dmPermission: false,
       name,
       options: [
+        // Products
         {
-          name: 'action',
-          type: ApplicationCommandOptionType.String,
-          required: true,
-          choices: [
-            { name: 'products_list', value: 'products_list' },
-            { name: 'invoice_complete', value: 'invoice_complete' },
-            { name: 'invoice_refund', value: 'invoice_refund' },
+          name: 'products', type: ApplicationCommandOptionType.SubcommandGroup, options: [
+            { name: 'list', type: ApplicationCommandOptionType.Subcommand },
+            { name: 'create', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'name', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'price', type: ApplicationCommandOptionType.Number, required: true },
+            ]},
+            { name: 'delete', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'id', type: ApplicationCommandOptionType.String, required: true },
+            ]},
+            { name: 'update', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'id', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'name', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'price', type: ApplicationCommandOptionType.Number, required: false },
+            ]},
           ],
         },
+        // Coupons
         {
-          name: 'id',
-          type: ApplicationCommandOptionType.String,
-          required: false,
-          description: 'Invoice ID for complete/refund',
+          name: 'coupons', type: ApplicationCommandOptionType.SubcommandGroup, options: [
+            { name: 'list', type: ApplicationCommandOptionType.Subcommand },
+            { name: 'create', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'code', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'percent', type: ApplicationCommandOptionType.Integer, required: true },
+            ]},
+            { name: 'delete', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'id', type: ApplicationCommandOptionType.String, required: true },
+            ]},
+          ],
         },
+        // Variants
+        {
+          name: 'variants', type: ApplicationCommandOptionType.SubcommandGroup, options: [
+            { name: 'list', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'product_id', type: ApplicationCommandOptionType.String, required: true },
+            ]},
+            { name: 'restock', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'variant_id', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'quantity', type: ApplicationCommandOptionType.Integer, required: true },
+            ]},
+            { name: 'remove', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'variant_id', type: ApplicationCommandOptionType.String, required: true },
+            ]},
+            { name: 'delete', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'variant_id', type: ApplicationCommandOptionType.String, required: true },
+            ]},
+          ],
+        },
+        // Invoices (orders)
+        {
+          name: 'invoices', type: ApplicationCommandOptionType.Subcommand, options: [
+            { name: 'limit', type: ApplicationCommandOptionType.Integer, required: false },
+          ],
+        },
+        { name: 'invoice', type: ApplicationCommandOptionType.SubcommandGroup, options: [
+          { name: 'refund', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true } ] },
+          { name: 'replace', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true }, { name: 'items_json', type: ApplicationCommandOptionType.String, required: true } ] },
+          { name: 'complete', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true } ] },
+        ]},
+        // Customers
+        { name: 'customers', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'limit', type: ApplicationCommandOptionType.Integer, required: false } ] },
+        { name: 'customer', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true } ] },
       ],
     });
   }
 
-  /**
-   * @param {import('discord.js').ChatInputCommandInteraction} interaction
-   */
   async run(interaction) {
     const client = this.client;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    // Permission: highest role must be above "Staff"
+    if (!hasHigherRole(interaction.member, 'Staff')) {
+      return interaction.editReply('You do not have permission to use this Sellhub command.');
+    }
+    if (!client.sellhub) return interaction.editReply('❌ Sellhub API is not configured.');
+
     try {
-      // Staff-only guard
-      const { isStaff } = require('../../lib/users');
-      if (!await isStaff(interaction.guild, interaction.member.id)) {
-        return interaction.editReply('❌ Only staff can use Sellhub commands.');
-      }
+      const group = interaction.options.getSubcommandGroup(false);
+      const sub = interaction.options.getSubcommand(false);
 
-      if (!client.sellhub) {
-        return interaction.editReply('❌ Sellhub API is not configured.');
-      }
-
-      const action = interaction.options.getString('action', true);
-      const id = interaction.options.getString('id', false) || '';
-
-      switch (action) {
-        case 'products_list': {
+      // PRODUCTS
+      if (group === 'products') {
+        if (sub === 'list') {
           const res = await client.sellhub.getProducts({ limit: 10 });
           const items = Array.isArray(res) ? res : (res?.data || []);
-          if (!items.length) return interaction.editReply('No products found.');
-          const lines = items.slice(0, 10).map(p => `• ${p.name || p.title || p.id} (ID: ${p.id || p._id || 'n/a'})`);
-          return interaction.editReply(lines.join('\n'));
+          const embed = new EmbedBuilder().setColor(0x3498DB).setTitle('Products');
+          if (!items.length) embed.setDescription('No products found.');
+          else embed.setDescription(items.slice(0, 10).map(p => `• ${p.name || p.title || 'Unnamed'} (ID: ${p.id || 'n/a'})`).join('\n'));
+          await interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          return;
         }
-        case 'invoice_complete': {
-          if (!id) return interaction.editReply('Provide `id` for invoice_complete.');
-          const result = await client.sellhub.completeInvoice(id);
-          return interaction.editReply(`✅ Completed invoice ${id}.`);
+        if (sub === 'create') {
+          const name = interaction.options.getString('name', true);
+          const price = interaction.options.getNumber('price', true);
+          const payload = { name, priceCents: Math.round(price * 100) };
+          const created = await client.sellhub.createProduct(payload);
+          await logSellhubEvent(client, 'Product Created', interaction.user, { id: created?.id, payload });
+          const embed = new EmbedBuilder().setColor(0x2ECC71).setTitle('Product Created Successfully').addFields(
+            { name: 'Name', value: name, inline: true },
+            { name: 'Price', value: `$${price.toFixed(2)}`, inline: true },
+            { name: 'ID', value: String(created?.id || 'unknown'), inline: true },
+          );
+          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
-        case 'invoice_refund': {
-          if (!id) return interaction.editReply('Provide `id` for invoice_refund.');
-          const result = await client.sellhub.refundInvoice(id);
-          return interaction.editReply(`✅ Refunded invoice ${id}.`);
+        if (sub === 'delete') {
+          const id = interaction.options.getString('id', true);
+          await client.sellhub.deleteProduct(id);
+          await logSellhubEvent(client, 'Product Deleted', interaction.user, { id });
+          return interaction.editReply({ content: `✅ Deleted product ${id}`, flags: MessageFlags.Ephemeral });
         }
-        default:
-          return interaction.editReply('Unknown action.');
+        if (sub === 'update') {
+          const id = interaction.options.getString('id', true);
+          const name = interaction.options.getString('name', false);
+          const price = interaction.options.getNumber('price', false);
+          const payload = {};
+          if (name) payload.name = name;
+          if (price != null) payload.priceCents = Math.round(price * 100);
+          const updated = await client.sellhub.updateProduct(id, payload);
+          await logSellhubEvent(client, 'Product Updated', interaction.user, { id, payload });
+          const embed = new EmbedBuilder().setColor(0xF1C40F).setTitle('Product Updated').addFields(
+            { name: 'ID', value: id, inline: true },
+            ...(name ? [{ name: 'Name', value: name, inline: true }] : []),
+            ...(price != null ? [{ name: 'Price', value: `$${price.toFixed(2)}`, inline: true }] : []),
+          );
+          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
       }
+
+      // COUPONS
+      if (group === 'coupons') {
+        if (sub === 'list') {
+          const items = await client.sellhub.getCoupons();
+          const list = Array.isArray(items) ? items : (items?.data || []);
+          const embed = new EmbedBuilder().setColor(0x9B59B6).setTitle('Coupons');
+          embed.setDescription(list.slice(0, 20).map(c => `• ${c.code || c.id} (${c.percent || c.discount || 0}% off)`).join('\n') || 'No coupons.');
+          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'create') {
+          const code = interaction.options.getString('code', true);
+          const percent = interaction.options.getInteger('percent', true);
+          const payload = { code, percent };
+          const created = await client.sellhub.createCoupon(payload);
+          await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload });
+          return interaction.editReply({ content: `✅ Coupon ${code} (${percent}% off) created.`, flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'delete') {
+          const id = interaction.options.getString('id', true);
+          await client.sellhub.deleteCoupon(id);
+          await logSellhubEvent(client, 'Coupon Deleted', interaction.user, { id });
+          return interaction.editReply({ content: `✅ Coupon ${id} deleted.`, flags: MessageFlags.Ephemeral });
+        }
+      }
+
+      // VARIANTS
+      if (group === 'variants') {
+        if (sub === 'list') {
+          const productId = interaction.options.getString('product_id', true);
+          const list = await client.sellhub.getVariants(productId);
+          const items = Array.isArray(list) ? list : (list?.data || []);
+          const embed = new EmbedBuilder().setColor(0x34495E).setTitle('Variants');
+          embed.setDescription(items.slice(0, 20).map(v => `• ${v.name || v.id} (ID: ${v.id || 'n/a'})`).join('\n') || 'No variants');
+          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'restock') {
+          const variant_id = interaction.options.getString('variant_id', true);
+          const quantity = interaction.options.getInteger('quantity', true);
+          const payload = { quantity };
+          await client.sellhub.restockVariant(variant_id, payload);
+          await logSellhubEvent(client, 'Variant Restocked', interaction.user, { id: variant_id, payload });
+          return interaction.editReply({ content: `✅ Restocked variant ${variant_id} by ${quantity}.`, flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'remove') {
+          const variant_id = interaction.options.getString('variant_id', true);
+          await client.sellhub.removeAllStock(variant_id);
+          await logSellhubEvent(client, 'Variant Stock Removed', interaction.user, { id: variant_id });
+          return interaction.editReply({ content: `✅ Removed all stock from variant ${variant_id}.`, flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'delete') {
+          const variant_id = interaction.options.getString('variant_id', true);
+          await client.sellhub.deleteVariant(variant_id);
+          await logSellhubEvent(client, 'Variant Deleted', interaction.user, { id: variant_id });
+          return interaction.editReply({ content: `✅ Variant ${variant_id} deleted.`, flags: MessageFlags.Ephemeral });
+        }
+      }
+
+      // INVOICES (list)
+      if (!group && sub === 'invoices') {
+        const limit = interaction.options.getInteger('limit', false) || 10;
+        const res = await client.sellhub.getInvoices({ limit });
+        const items = Array.isArray(res) ? res : (res?.data || []);
+        const embed = new EmbedBuilder().setColor(0x16A085).setTitle('Recent Invoices');
+        embed.setDescription(items.slice(0, limit).map(inv => `• ${inv.id || 'n/a'} - $${((inv.totalCents||0)/100).toFixed(2)}`).join('\n') || 'No invoices.');
+        return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+
+      // INVOICE actions
+      if (group === 'invoice') {
+        const id = interaction.options.getString('id', true);
+        if (sub === 'refund') {
+          await client.sellhub.refundInvoice(id);
+          await logSellhubEvent(client, 'Invoice Refunded', interaction.user, { id });
+          return interaction.editReply({ content: `✅ Refunded invoice ${id}.`, flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'complete') {
+          await client.sellhub.completeInvoice(id);
+          await logSellhubEvent(client, 'Invoice Completed', interaction.user, { id });
+          return interaction.editReply({ content: `✅ Completed invoice ${id}.`, flags: MessageFlags.Ephemeral });
+        }
+        if (sub === 'replace') {
+          const items_json = interaction.options.getString('items_json', true);
+          let payload;
+          try { payload = JSON.parse(items_json); } catch { return interaction.editReply('Invalid items_json. Provide valid JSON.'); }
+          await client.sellhub.replaceInvoiceItems(id, payload);
+          await logSellhubEvent(client, 'Invoice Items Replaced', interaction.user, { id, payload });
+          return interaction.editReply({ content: `✅ Replaced items for invoice ${id}.`, flags: MessageFlags.Ephemeral });
+        }
+      }
+
+      // CUSTOMERS
+      if (!group && sub === 'customers') {
+        const limit = interaction.options.getInteger('limit', false) || 10;
+        const res = await client.sellhub.getCustomers({ limit });
+        const items = Array.isArray(res) ? res : (res?.data || []);
+        const embed = new EmbedBuilder().setColor(0x1ABC9C).setTitle('Customers');
+        embed.setDescription(items.slice(0, limit).map(c => `• ${c.email || c.id} (ID: ${c.id || 'n/a'})`).join('\n') || 'No customers.');
+        return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+      if (!group && sub === 'customer') {
+        const id = interaction.options.getString('id', true);
+        const c = await client.sellhub.getCustomer(id);
+        const embed = new EmbedBuilder().setColor(0x1ABC9C).setTitle('Customer');
+        embed.addFields(
+          { name: 'ID', value: String(c.id || id), inline: true },
+          ...(c.email ? [{ name: 'Email', value: String(c.email), inline: true }] : []),
+        );
+        return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+
+      return interaction.editReply('Unknown subcommand.');
+
     } catch (err) {
-      client.log.error('sellhub error:', err);
+      this.client.log.error('sellhub error:', err);
+      await logSellhubEvent(this.client, 'Error', interaction.user, { error: err?.message || String(err) }, true);
       const msg = err?.data?.message || err.message || 'Failed.';
       return interaction.editReply('❌ ' + msg);
     }
