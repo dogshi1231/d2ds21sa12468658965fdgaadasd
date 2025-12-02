@@ -53,7 +53,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
               { name: 'enddate', description: 'End date (ISO 8601)', type: ApplicationCommandOptionType.String, required: false },
               { name: 'enablelimit', description: 'Enable usage limit', type: ApplicationCommandOptionType.Boolean, required: false },
               { name: 'couponlimit', description: 'Usage limit number', type: ApplicationCommandOptionType.Integer, required: false },
-              { name: 'productsaccepted_json', description: 'Products/variants mapping JSON', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'productsaccepted_json', description: 'Products/variants mapping JSON e.g. {"prod_id":{"variants":["var_id"]}}', type: ApplicationCommandOptionType.String, required: false },
               { name: 'bundlesaccepted_json', description: 'Bundle IDs array JSON', type: ApplicationCommandOptionType.String, required: false },
               { name: 'paymentsaccepted_json', description: 'Valid payment methods array JSON', type: ApplicationCommandOptionType.String, required: false },
               { name: 'disabledpaymentmethods_json', description: 'Blocked payment methods array JSON', type: ApplicationCommandOptionType.String, required: false },
@@ -98,6 +98,19 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           { name: 'refund', description: 'Refund an invoice', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Invoice ID', type: ApplicationCommandOptionType.String, required: true } ] },
           { name: 'replace', description: 'Replace items on an invoice', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Invoice ID', type: ApplicationCommandOptionType.String, required: true }, { name: 'items_json', description: 'Items JSON payload', type: ApplicationCommandOptionType.String, required: true } ] },
           { name: 'complete', description: 'Mark an invoice as complete', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Invoice ID', type: ApplicationCommandOptionType.String, required: true } ] },
+        ]},
+        { name: 'checkout', description: 'Checkout operations', type: ApplicationCommandOptionType.SubcommandGroup, options: [
+          { name: 'create', description: 'Create a checkout session', type: ApplicationCommandOptionType.Subcommand, options: [
+            { name: 'email', description: 'Customer email', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'variant_id', description: 'Variant ID', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'quantity', description: 'Quantity', type: ApplicationCommandOptionType.Integer, required: false },
+            { name: 'currency', description: 'Currency code (default USD)', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'return_url', description: 'Success redirect URL', type: ApplicationCommandOptionType.String, required: false },
+          ]},
+          { name: 'process', description: 'Process a checkout session', type: ApplicationCommandOptionType.Subcommand, options: [
+            { name: 'session_id', description: 'Session ID from create', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'method', description: 'Payment method name', type: ApplicationCommandOptionType.String, required: true },
+          ]},
         ]},
         // Customers
         { name: 'customers', description: 'List customers', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'limit', description: 'Max customers to show', type: ApplicationCommandOptionType.Integer, required: false } ] },
@@ -224,7 +237,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
             }
             payload = {
               couponCode,
-              couponValue,
+              couponValue, // Number as per support docs
               valueType,
               enableStartDate: !!enableStartDate,
               enableEndDate: !!enableEndDate,
@@ -235,7 +248,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
               couponLimit: resolvedCouponLimit,
               productsAccepted: productsAccepted || {},
               bundlesAccepted: bundlesAccepted || [],
-              paymentsAccepted: paymentsAccepted || [],
+              paymentsAccepted: paymentsAccepted || ['cardToCrypto'],
               disabledPaymentMethods: disabledPaymentMethods || [],
             };
           }
@@ -320,6 +333,42 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           await client.sellhub.replaceInvoiceItems(id, payload);
           await logSellhubEvent(client, 'Invoice Items Replaced', interaction.user, { id, payload });
           return interaction.editReply({ content: `✅ Replaced items for invoice ${id}.` });
+        }
+      }
+
+      // CHECKOUT
+      if (group === 'checkout') {
+        if (sub === 'create') {
+          const email = interaction.options.getString('email', true);
+          const variantId = interaction.options.getString('variant_id', true);
+          const quantity = interaction.options.getInteger('quantity', false) || 1;
+          const currency = interaction.options.getString('currency', false) || 'USD';
+          const returnUrl = interaction.options.getString('return_url', false) || 'https://example.com/success';
+          const payload = {
+            email,
+            currency,
+            returnUrl,
+            cart: {
+              items: [{ variantId, quantity }],
+            },
+          };
+          const session = await client.sellhub.createCheckout(payload);
+          await logSellhubEvent(client, 'Checkout Created', interaction.user, { sessionId: session?.id, payload });
+          const embed = new EmbedBuilder().setColor(0xE67E22).setTitle('Checkout Session Created')
+            .addFields(
+              { name: 'Session ID', value: String(session?.id || 'n/a'), inline: true },
+              { name: 'Email', value: email, inline: true },
+              { name: 'Variant', value: variantId, inline: true },
+            );
+          return interaction.editReply({ embeds: [embed] });
+        }
+        if (sub === 'process') {
+          const sessionId = interaction.options.getString('session_id', true);
+          const methodName = interaction.options.getString('method', true);
+          const payload = { id: sessionId, methodName };
+          const result = await client.sellhub.processCheckout(sessionId, payload);
+          await logSellhubEvent(client, 'Checkout Processed', interaction.user, { sessionId, methodName, result });
+          return interaction.editReply({ content: `✅ Checkout processed (session ${sessionId}, method: ${methodName})` });
         }
       }
 
