@@ -56,6 +56,7 @@ require('./env').load(); // load and check environment variables
 const fs = require('fs');
 const YAML = require('yaml');
 const logger = require('./lib/logger');
+const dns = require('node:dns');
 
 // create a Logger using the default config
 // and set listeners as early as possible.
@@ -79,6 +80,20 @@ process.on('uncaughtException', (error, origin) => {
 });
 
 process.on('warning', warning => log.warn(warning.stack || warning));
+
+// Optional: override DNS servers if the host resolver is problematic
+try {
+	const dnsEnv = (process.env.DNS_SERVERS || '').trim();
+	if (dnsEnv) {
+		const servers = dnsEnv.split(',').map(s => s.trim()).filter(Boolean);
+		if (servers.length) {
+			dns.setServers(servers);
+			log.info('DNS servers set: ' + servers.join(', '));
+		}
+	}
+} catch (e) {
+	log.warn('Failed to set DNS servers: ' + (e?.message || String(e)));
+}
 
 // INIT Sentry if required ENV vars are set
 const sentryEnabled = !!process.env.SENTRY_DSN;
