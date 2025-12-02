@@ -208,14 +208,21 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           if (rawJson) {
             try { payload = JSON.parse(rawJson); } catch { return interaction.editReply('Invalid raw_json. Provide valid JSON.'); }
           } else {
+            // Validate valueType
+            if (!['percentage', 'fixed'].includes(valueType)) {
+              return interaction.editReply('valuetype must be either "percentage" or "fixed"');
+            }
             payload = {
               couponCode,
               couponValue,
               valueType,
-              ...(enableStartDate && startDate ? { enableStartDate: true, startDate } : {}),
-              ...(enableEndDate && endDate ? { enableEndDate: true, endDate } : {}),
-              ...(enableLimit && typeof couponLimit === 'number' ? { enableLimit: true, couponLimit } : {}),
-              ...(productsAccepted ? { productsAccepted } : {}),
+              enableStartDate: !!enableStartDate,
+              enableEndDate: !!enableEndDate,
+              enableLimit: !!enableLimit,
+              ...(enableStartDate && startDate ? { startDate } : {}),
+              ...(enableEndDate && endDate ? { endDate } : {}),
+              ...(enableLimit && typeof couponLimit === 'number' ? { couponLimit } : {}),
+              productsAccepted: productsAccepted || {},
               ...(bundlesAccepted ? { bundlesAccepted } : {}),
               ...(paymentsAccepted ? { paymentsAccepted } : {}),
               ...(disabledPaymentMethods ? { disabledPaymentMethods } : {}),
