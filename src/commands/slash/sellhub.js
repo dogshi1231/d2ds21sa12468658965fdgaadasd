@@ -94,7 +94,12 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
 
   async run(interaction) {
     const client = this.client;
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      await interaction.deferReply({ ephemeral: true });
+    } catch (e) {
+      // If defer fails (e.g., already replied), we'll proceed and try to edit later
+      client.log.warn('sellhub: failed to defer reply:', e?.message || e);
+    }
 
     // Permission: match standard staff logic (ManageGuild, staff role, or SUPER)
     if (!(await isStaff(interaction.guild, interaction.member.id))) {
@@ -114,7 +119,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const embed = new EmbedBuilder().setColor(0x3498DB).setTitle('Products');
           if (!items.length) embed.setDescription('No products found.');
           else embed.setDescription(items.slice(0, 10).map(p => `• ${p.name || p.title || 'Unnamed'} (ID: ${p.id || 'n/a'})`).join('\n'));
-          await interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          await interaction.editReply({ embeds: [embed] });
           return;
         }
         if (sub === 'create') {
@@ -128,13 +133,13 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
             { name: 'Price', value: `$${price.toFixed(2)}`, inline: true },
             { name: 'ID', value: String(created?.id || 'unknown'), inline: true },
           );
-          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ embeds: [embed] });
         }
         if (sub === 'delete') {
           const id = interaction.options.getString('id', true);
           await client.sellhub.deleteProduct(id);
           await logSellhubEvent(client, 'Product Deleted', interaction.user, { id });
-          return interaction.editReply({ content: `✅ Deleted product ${id}`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Deleted product ${id}` });
         }
         if (sub === 'update') {
           const id = interaction.options.getString('id', true);
@@ -150,7 +155,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
             ...(name ? [{ name: 'Name', value: name, inline: true }] : []),
             ...(price != null ? [{ name: 'Price', value: `$${price.toFixed(2)}`, inline: true }] : []),
           );
-          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ embeds: [embed] });
         }
       }
 
@@ -161,7 +166,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const list = Array.isArray(items) ? items : (items?.data || []);
           const embed = new EmbedBuilder().setColor(0x9B59B6).setTitle('Coupons');
           embed.setDescription(list.slice(0, 20).map(c => `• ${c.code || c.id} (${c.percent || c.discount || 0}% off)`).join('\n') || 'No coupons.');
-          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ embeds: [embed] });
         }
         if (sub === 'create') {
           const code = interaction.options.getString('code', true);
@@ -169,13 +174,13 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const payload = { code, percent };
           const created = await client.sellhub.createCoupon(payload);
           await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload });
-          return interaction.editReply({ content: `✅ Coupon ${code} (${percent}% off) created.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Coupon ${code} (${percent}% off) created.` });
         }
         if (sub === 'delete') {
           const id = interaction.options.getString('id', true);
           await client.sellhub.deleteCoupon(id);
           await logSellhubEvent(client, 'Coupon Deleted', interaction.user, { id });
-          return interaction.editReply({ content: `✅ Coupon ${id} deleted.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Coupon ${id} deleted.` });
         }
       }
 
@@ -187,7 +192,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const items = Array.isArray(list) ? list : (list?.data || []);
           const embed = new EmbedBuilder().setColor(0x34495E).setTitle('Variants');
           embed.setDescription(items.slice(0, 20).map(v => `• ${v.name || v.id} (ID: ${v.id || 'n/a'})`).join('\n') || 'No variants');
-          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ embeds: [embed] });
         }
         if (sub === 'restock') {
           const variant_id = interaction.options.getString('variant_id', true);
@@ -195,19 +200,19 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const payload = { quantity };
           await client.sellhub.restockVariant(variant_id, payload);
           await logSellhubEvent(client, 'Variant Restocked', interaction.user, { id: variant_id, payload });
-          return interaction.editReply({ content: `✅ Restocked variant ${variant_id} by ${quantity}.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Restocked variant ${variant_id} by ${quantity}.` });
         }
         if (sub === 'remove') {
           const variant_id = interaction.options.getString('variant_id', true);
           await client.sellhub.removeAllStock(variant_id);
           await logSellhubEvent(client, 'Variant Stock Removed', interaction.user, { id: variant_id });
-          return interaction.editReply({ content: `✅ Removed all stock from variant ${variant_id}.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Removed all stock from variant ${variant_id}.` });
         }
         if (sub === 'delete') {
           const variant_id = interaction.options.getString('variant_id', true);
           await client.sellhub.deleteVariant(variant_id);
           await logSellhubEvent(client, 'Variant Deleted', interaction.user, { id: variant_id });
-          return interaction.editReply({ content: `✅ Variant ${variant_id} deleted.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Variant ${variant_id} deleted.` });
         }
       }
 
@@ -218,7 +223,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
         const items = Array.isArray(res) ? res : (res?.data || []);
         const embed = new EmbedBuilder().setColor(0x16A085).setTitle('Recent Invoices');
         embed.setDescription(items.slice(0, limit).map(inv => `• ${inv.id || 'n/a'} - $${((inv.totalCents||0)/100).toFixed(2)}`).join('\n') || 'No invoices.');
-        return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        return interaction.editReply({ embeds: [embed] });
       }
 
       // INVOICE actions
@@ -227,12 +232,12 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
         if (sub === 'refund') {
           await client.sellhub.refundInvoice(id);
           await logSellhubEvent(client, 'Invoice Refunded', interaction.user, { id });
-          return interaction.editReply({ content: `✅ Refunded invoice ${id}.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Refunded invoice ${id}.` });
         }
         if (sub === 'complete') {
           await client.sellhub.completeInvoice(id);
           await logSellhubEvent(client, 'Invoice Completed', interaction.user, { id });
-          return interaction.editReply({ content: `✅ Completed invoice ${id}.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Completed invoice ${id}.` });
         }
         if (sub === 'replace') {
           const items_json = interaction.options.getString('items_json', true);
@@ -240,7 +245,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           try { payload = JSON.parse(items_json); } catch { return interaction.editReply('Invalid items_json. Provide valid JSON.'); }
           await client.sellhub.replaceInvoiceItems(id, payload);
           await logSellhubEvent(client, 'Invoice Items Replaced', interaction.user, { id, payload });
-          return interaction.editReply({ content: `✅ Replaced items for invoice ${id}.`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `✅ Replaced items for invoice ${id}.` });
         }
       }
 
@@ -251,7 +256,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
         const items = Array.isArray(res) ? res : (res?.data || []);
         const embed = new EmbedBuilder().setColor(0x1ABC9C).setTitle('Customers');
         embed.setDescription(items.slice(0, limit).map(c => `• ${c.email || c.id} (ID: ${c.id || 'n/a'})`).join('\n') || 'No customers.');
-        return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        return interaction.editReply({ embeds: [embed] });
       }
       if (!group && sub === 'customer') {
         const id = interaction.options.getString('id', true);
@@ -278,7 +283,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
             )
             .setTimestamp();
           await logSellhubEvent(client, 'API Key Test', interaction.user, { endpoint: '/invoices?limit=1', ok: true });
-          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ embeds: [embed] });
         } catch (e) {
           const details = {
             status: e?.status,
@@ -293,7 +298,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const netHint = e?.code === 'ENOTFOUND' ? 'DNS lookup failed' : e?.code === 'ECONNREFUSED' ? 'Connection refused' : e?.code === 'ETIMEDOUT' ? 'Network timeout' : '';
           const reason = isAuth ? 'Unauthorized: Check API key format/value' : (netHint || e?.data?.message || e?.message || 'Failed');
           const suffix = [details.code, details.host].filter(Boolean).join(' · ');
-          return interaction.editReply({ content: `❌ ${reason}${suffix ? ` (${suffix})` : ''}`, flags: MessageFlags.Ephemeral });
+          return interaction.editReply({ content: `❌ ${reason}${suffix ? ` (${suffix})` : ''}` });
         }
       }
 
