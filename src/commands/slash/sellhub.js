@@ -280,10 +280,20 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           await logSellhubEvent(client, 'API Key Test', interaction.user, { endpoint: '/invoices?limit=1', ok: true });
           return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         } catch (e) {
-          await logSellhubEvent(client, 'API Key Test Failed', interaction.user, { error: e?.message || String(e) }, true);
-          const code = e?.status;
-          const msg = code === 401 || code === 403 ? 'Unauthorized: Check API key format/value' : (e?.data?.message || e?.message || 'Failed');
-          return interaction.editReply({ content: '❌ ' + msg, flags: MessageFlags.Ephemeral });
+          const details = {
+            status: e?.status,
+            scheme: e?.scheme,
+            code: e?.code,
+            errno: e?.errno,
+            syscall: e?.syscall,
+            host: e?.hostname,
+          };
+          await logSellhubEvent(client, 'API Key Test Failed', interaction.user, { error: e?.message || String(e), ...details }, true);
+          const isAuth = e?.status === 401 || e?.status === 403;
+          const netHint = e?.code === 'ENOTFOUND' ? 'DNS lookup failed' : e?.code === 'ECONNREFUSED' ? 'Connection refused' : e?.code === 'ETIMEDOUT' ? 'Network timeout' : '';
+          const reason = isAuth ? 'Unauthorized: Check API key format/value' : (netHint || e?.data?.message || e?.message || 'Failed');
+          const suffix = [details.code, details.host].filter(Boolean).join(' · ');
+          return interaction.editReply({ content: `❌ ${reason}${suffix ? ` (${suffix})` : ''}`, flags: MessageFlags.Ephemeral });
         }
       }
 

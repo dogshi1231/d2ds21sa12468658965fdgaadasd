@@ -23,16 +23,34 @@ class SellhubAPI {
     const url = `${this.baseUrl}${path}`;
     const opts = { method, headers: this._headersForScheme(scheme) };
     if (body !== undefined) opts.body = JSON.stringify(body);
-    const res = await fetch(url, opts);
-    let json; try { json = await res.json(); } catch { json = null; }
-    return { res, json, url };
+    try {
+      const res = await fetch(url, opts);
+      let json; try { json = await res.json(); } catch { json = null; }
+      return { res, json, url };
+    } catch (e) {
+      const err = new Error(`Fetch failed: ${e.message}`);
+      err.cause = e.cause || e;
+      // Bubble up useful diagnostics
+      err.code = e.cause?.code || e.code;
+      err.errno = e.cause?.errno || e.errno;
+      err.syscall = e.cause?.syscall || e.syscall;
+      try { err.hostname = new URL(this.baseUrl).hostname; } catch {}
+      throw err;
+    }
   }
 
   async _request(method, path, body) {
     const trySchemes = this.authScheme === 'bearer' ? ['bearer'] : this.authScheme === 'raw' ? ['raw'] : ['raw', 'bearer'];
     let last;
     for (const scheme of trySchemes) {
-      const { res, json, url } = await this._fetch(method, path, body, scheme);
+      let res, json, url;
+      try {
+        ({ res, json, url } = await this._fetch(method, path, body, scheme));
+      } catch (e) {
+        // Network/transport error; stop retry loop and rethrow with context
+        e.scheme = scheme;
+        throw e;
+      }
       if (res.ok) return json;
       last = { res, json, url, scheme };
       if (!(res.status === 401 || res.status === 403)) break; // only retry auth errors
