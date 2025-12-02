@@ -57,6 +57,7 @@ const fs = require('fs');
 const YAML = require('yaml');
 const logger = require('./lib/logger');
 const dns = require('node:dns');
+const dnsPromises = require('node:dns').promises;
 
 // create a Logger using the default config
 // and set listeners as early as possible.
@@ -94,6 +95,18 @@ try {
 } catch (e) {
 	log.warn('Failed to set DNS servers: ' + (e?.message || String(e)));
 }
+
+// DNS preflight for Sellhub base to surface resolver issues early
+(async () => {
+	try {
+		const base = (process.env.SELLHUB_API_BASE || 'https://api.sellhub.app/v1').trim();
+		const host = new URL(base).hostname;
+		const a = await dnsPromises.resolve(host);
+		log.info(`[DNS] ${host} -> ${Array.isArray(a) ? a.join(', ') : String(a)}`);
+	} catch (e) {
+		log.warn(`[DNS] Preflight failed: ${e?.message || String(e)}`);
+	}
+})();
 
 // INIT Sentry if required ENV vars are set
 const sentryEnabled = !!process.env.SENTRY_DSN;
