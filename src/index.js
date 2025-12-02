@@ -106,6 +106,24 @@ const client = new Client(config, log);
 config = client.config;
 log = client.log;
 
+// Initialize shared core backend (Phase 2)
+try {
+	const { AnalyticsEngine } = require('./core/analytics/engine');
+	const { SellhubAPI } = require('./core/sellhub/api');
+	const db = require('./core/database');
+
+	client.analytics = new AnalyticsEngine({ client, db });
+	if (process.env.SELLHUB_KEY) {
+		client.sellhub = new SellhubAPI(process.env.SELLHUB_KEY);
+		log.info('Sellhub API initialized');
+	} else {
+		log.debug('SELLHUB_KEY not set; Sellhub API disabled');
+	}
+	log.info('AnalyticsEngine initialized');
+} catch (e) {
+	log.warn('Core backend init failed:', e.message);
+}
+
 // start the bot and then the web server
 client.login().then(() => {
 	http(client);

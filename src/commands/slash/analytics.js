@@ -11,111 +11,68 @@ module.exports = class AnalyticsCommand extends SlashCommand {
 	}
 
 	/**
-	 * @param {import("discord.js").ChatInputCommandInteraction} interaction
+	 * @param {import('discord.js').ChatInputCommandInteraction} interaction
 	 */
 	async run(interaction) {
 		await interaction.deferReply();
 
 		try {
 			const client = this.client;
-
-			if (!client.analytics) {
+			if (!client.analytics || typeof client.analytics.getDashboardData !== 'function') {
 				return await interaction.editReply('❌ Analytics system is not available.');
 			}
 
-			// Gather analytics data
-			const [
-				orderAnalytics,
-				inviteAnalytics,
-				staffAnalytics,
-				engagementAnalytics,
-				topCustomers,
-				topStaff,
-				recentOrders,
-				mostCommonProduct,
-			] = await Promise.all([
-				client.analytics.getOrderAnalytics(),
-				client.analytics.getInviteAnalytics(),
-				client.analytics.getStaffAnalytics(interaction.guildId),
-				client.analytics.getEngagementAnalytics(),
-				client.analytics.getTopCustomers(10),
-				client.analytics.getTopStaff(10),
-				client.analytics.getRecentOrders(5),
-				client.analytics.getMostCommonProduct(),
-			]);
+			const data = await client.analytics.getDashboardData();
 
-			// Create main analytics embed
 			const mainEmbed = new EmbedBuilder()
 				.setColor('#3498db')
 				.setTitle('📊 Real-Time Analytics Dashboard')
 				.setTimestamp();
 
-			// Order section
+			// Orders
+			const topProductText = data.topProduct ? `${data.topProduct.name} (${data.topProduct.count})` : 'N/A';
 			mainEmbed.addFields({
-				name: '📦 Order Statistics',
-				value: `**Today:** ${orderAnalytics.ordersToday} orders | $${(orderAnalytics.revenueToday / 100).toFixed(2)}\n**Top Product:** ${orderAnalytics.topProduct?.name || 'N/A'} (${orderAnalytics.topProduct?.count || 0} sold)`,
+				name: '📦 Orders',
+				value: `Today: ${data.ordersToday} | Revenue: $${(data.revenueToday / 100).toFixed(2)}\nTop: ${topProductText}`,
 				inline: false,
 			});
 
-			// Invite section
+			// Invites
 			mainEmbed.addFields({
-				name: '🎫 Invite Performance',
-				value: `**Today:** ${inviteAnalytics.invitesToday} invites\n**Conversion Rate:** ${inviteAnalytics.joinToOrderRatio}%`,
+				name: '🎫 Invites',
+				value: `Joins: ${data.invites.totalJoins} | Purchases: ${data.invites.totalPurchases || 0}\nJoin→Order: ${data.invites.joinToOrderRatio}%`,
 				inline: true,
 			});
 
-			// Staff section
-			const totalTicketsToday = Object.values(staffAnalytics.ticketsClaimedToday).reduce((sum, count) => sum + count, 0);
-			const totalVouchesToday = Object.values(staffAnalytics.vouchesToday).reduce((sum, count) => sum + count, 0);
+			// Engagement
 			mainEmbed.addFields({
-				name: '👥 Staff Activity',
-				value: `**Tickets Today:** ${totalTicketsToday}\n**Vouches Today:** ${totalVouchesToday}`,
+				name: '💬 Engagement',
+				value: `VC Joins: ${data.engagement.vcJoinsToday}\nVC→Purchase: ${data.engagement.vcToPurchaseRatio}%\nMessages: ${data.engagement.totalMessagesToday}`,
 				inline: true,
 			});
 
-			// Top customers
-			if (topCustomers.length > 0) {
-				let customerText = '';
-				for (let i = 0; i < Math.min(5, topCustomers.length); i++) {
-					const customer = topCustomers[i];
-					customerText += `${i + 1}. <@${customer.userId}> - $${(customer.totalSpent / 100).toFixed(2)} (${customer.orderCount} orders)\n`;
-				}
-				mainEmbed.addFields({ name: '👑 Top 5 Customers', value: customerText, inline: false });
+			// Staff (top 3 by revenue)
+			const rev = data.staff.staffTicketRevenue || {};
+			const topStaff = Object.entries(rev).sort((a,b)=>b[1]-a[1]).slice(0,3);
+			if (topStaff.length) {
+				const staffText = topStaff.map(([id, cents], i)=> `${i+1}. <@${id}> - $${(cents/100).toFixed(2)}`).join('\n');
+				mainEmbed.addFields({ name: '🏆 Top Staff (Today)', value: staffText, inline: false });
 			}
 
-			// Top staff
-			if (topStaff.length > 0) {
-				let staffText = '';
-				for (let i = 0; i < Math.min(5, topStaff.length); i++) {
-					const staff = topStaff[i];
-					staffText += `${i + 1}. <@${staff.staffId}> - $${(staff.totalEarnings / 100).toFixed(2)} (${staff.ticketCount} tickets)\n`;
-				}
-				mainEmbed.addFields({ name: '🏆 Top 5 Staff by Earnings', value: staffText, inline: false });
-			}
-
-			// Recent orders
-			if (recentOrders.length > 0) {
-				let ordersText = '';
-				for (const order of recentOrders) {
-					const timestamp = Math.floor(new Date(order.timestamp).getTime() / 1000);
-					ordersText += `<t:${timestamp}:R> - ${order.product} - $${(order.amount / 100).toFixed(2)}\n`;
-				}
-				mainEmbed.addFields({ name: '🕒 Last 5 Orders', value: ordersText, inline: false });
-			}
-
-			// Most common product
-			if (mostCommonProduct) {
-				mainEmbed.addFields({
-					name: '📈 Most Common Product',
-					value: `${mostCommonProduct.product} (${mostCommonProduct.count} sold)`,
-					inline: false,
-				});
+			// Profit by category (top 5)
+			const pbc = data.profitByCategory || {};
+			const pbcList = Object.entries(pbc)
+				.map(([k,v]) => ({ k, margin: v.revenue ? (v.profit / v.revenue) : 0, profit: v.profit }))
+				.sort((a,b)=> (b.profit - a.profit))
+				.slice(0,5);
+			if (pbcList.length) {
+				const text = pbcList.map(x => `${x.k}: $${(x.profit/100).toFixed(2)} (${(x.margin*100).toFixed(1)}%)`).join('\n');
+				mainEmbed.addFields({ name: '💵 Profit by Category', value: text, inline: false });
 			}
 
 			await interaction.editReply({ embeds: [mainEmbed] });
-
 		} catch (error) {
-			client.log.error('Error in analytics command:', error);
+			this.client.log.error('Error in analytics command:', error);
 			await interaction.editReply('❌ An error occurred while fetching analytics data.');
 		}
 	}
