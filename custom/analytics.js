@@ -6,14 +6,14 @@ class Analytics {
 	constructor(client) {
 		this.client = client;
 		
-		// Paths
-		this.configPath = path.join(process.cwd(), 'custom', 'analytics-config.json');
-		this.dailyStatsPath = path.join(process.cwd(), 'data', 'dailyStats.json');
-		this.orderAnalyticsPath = path.join(process.cwd(), 'data', 'order_analytics.json');
-		this.inviteTrackingPath = path.join(process.cwd(), 'data', 'invite_tracking.json');
-		this.staffActivityPath = path.join(process.cwd(), 'data', 'staffActivity.json');
-		this.vouchesPath = path.join(process.cwd(), 'data', 'vouches.json');
-		this.invoiceLinksPath = path.join(process.cwd(), 'data', 'invoice_links.json');
+		// Paths (resolve relative to repo, not cwd)
+		this.configPath = path.join(__dirname, 'analytics-config.json');
+		this.dailyStatsPath = path.join(__dirname, '../data/dailyStats.json');
+		this.orderAnalyticsPath = path.join(__dirname, '../data/order_analytics.json');
+		this.inviteTrackingPath = path.join(__dirname, '../data/invite_tracking.json');
+		this.staffActivityPath = path.join(__dirname, '../data/staffActivity.json');
+		this.vouchesPath = path.join(__dirname, '../data/vouches.json');
+		this.invoiceLinksPath = path.join(__dirname, '../data/invoice_links.json');
 		
 		this.config = this.loadConfig();
 		this.dailyStats = this.loadDailyStats();
@@ -26,7 +26,7 @@ class Analytics {
 		try {
 			return JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
 		} catch (error) {
-			this.client.log.error('Failed to load analytics config:', error);
+			if (error?.code !== 'ENOENT') this.client.log.error('Failed to load analytics config:', error);
 			return {
 				analyticsChannelId: '1437178768752902145',
 				inactivityNoticeChannelId: '1437175400953544734',
@@ -65,8 +65,8 @@ class Analytics {
 		}
 	}
 
-	ensureDataFiles() {
-		const dataDir = path.join(process.cwd(), 'data');
+		ensureDataFiles() {
+			const dataDir = path.join(__dirname, '../data');
 		if (!fs.existsSync(dataDir)) {
 			fs.mkdirSync(dataDir, { recursive: true });
 		}
@@ -74,6 +74,16 @@ class Analytics {
 		if (!fs.existsSync(this.dailyStatsPath)) {
 			this.saveDailyStats();
 		}
+
+			// Create other files if missing with safe defaults
+			const safeCreate = (p, content) => {
+				try { if (!fs.existsSync(p)) fs.writeFileSync(p, JSON.stringify(content, null, 2)); } catch {}
+			};
+			safeCreate(this.orderAnalyticsPath, { orders: {} });
+			safeCreate(this.inviteTrackingPath, { members: {} });
+			safeCreate(this.staffActivityPath, { activity: {} });
+			safeCreate(this.vouchesPath, { vouches: {} });
+			safeCreate(this.invoiceLinksPath, {});
 	}
 
 	/**
@@ -189,7 +199,9 @@ class Analytics {
 	 * Get order analytics for today
 	 */
 	async getOrderAnalytics() {
-		const orderData = JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'));
+		const orderData = fs.existsSync(this.orderAnalyticsPath)
+			? JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'))
+			: { orders: {} };
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
@@ -275,9 +287,15 @@ class Analytics {
 	 * Get invite analytics
 	 */
 	async getInviteAnalytics() {
-		const inviteData = JSON.parse(fs.readFileSync(this.inviteTrackingPath, 'utf8'));
-		const orderData = JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'));
-		const invoiceLinks = JSON.parse(fs.readFileSync(this.invoiceLinksPath, 'utf8'));
+		const inviteData = fs.existsSync(this.inviteTrackingPath)
+			? JSON.parse(fs.readFileSync(this.inviteTrackingPath, 'utf8'))
+			: { members: {} };
+		const orderData = fs.existsSync(this.orderAnalyticsPath)
+			? JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'))
+			: { orders: {} };
+		const invoiceLinks = fs.existsSync(this.invoiceLinksPath)
+			? JSON.parse(fs.readFileSync(this.invoiceLinksPath, 'utf8'))
+			: {};
 
 		let totalJoins = Object.keys(inviteData.members || {}).length;
 		let totalPurchases = Object.keys(orderData.orders || {}).length;
@@ -322,8 +340,10 @@ class Analytics {
 	 * Get staff activity analytics
 	 */
 	async getStaffAnalytics(guildId) {
-		const staffActivity = JSON.parse(fs.readFileSync(this.staffActivityPath, 'utf8'));
-		const vouches = fs.existsSync(this.vouchesPath) 
+		const staffActivity = fs.existsSync(this.staffActivityPath)
+			? JSON.parse(fs.readFileSync(this.staffActivityPath, 'utf8'))
+			: { activity: {} };
+		const vouches = fs.existsSync(this.vouchesPath)
 			? JSON.parse(fs.readFileSync(this.vouchesPath, 'utf8'))
 			: { vouches: {} };
 
@@ -392,7 +412,9 @@ class Analytics {
 	 */
 	async getEngagementAnalytics() {
 		// Get VC-to-purchase ratio
-		const orderData = JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'));
+		const orderData = fs.existsSync(this.orderAnalyticsPath)
+			? JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'))
+			: { orders: {} };
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
@@ -428,7 +450,9 @@ class Analytics {
 	 * Get top customers by total spent
 	 */
 	async getTopCustomers(limit = 10) {
-		const orderData = JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'));
+		const orderData = fs.existsSync(this.orderAnalyticsPath)
+			? JSON.parse(fs.readFileSync(this.orderAnalyticsPath, 'utf8'))
+			: { orders: {} };
 		const customerSpending = {};
 
 		// Aggregate spending per customer

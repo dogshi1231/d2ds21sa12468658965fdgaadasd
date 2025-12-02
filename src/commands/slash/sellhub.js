@@ -1,6 +1,6 @@
 const { SlashCommand } = require('@eartharoid/dbf');
 const { ApplicationCommandOptionType, MessageFlags, EmbedBuilder } = require('discord.js');
-const { hasHigherRole } = require('../../utils/roles');
+const { isStaff } = require('../../lib/users');
 const { logSellhubEvent } = require('../../utils/sellhub-log');
 
 module.exports = class SellhubSlashCommand extends SlashCommand {
@@ -95,8 +95,8 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
     const client = this.client;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // Permission: highest role must be above "Staff"
-    if (!hasHigherRole(interaction.member, 'Staff')) {
+    // Permission: match standard staff logic (ManageGuild, staff role, or SUPER)
+    if (!(await isStaff(interaction.guild, interaction.member.id))) {
       return interaction.editReply('You do not have permission to use this Sellhub command.');
     }
     if (!client.sellhub) return interaction.editReply('❌ Sellhub API is not configured.');

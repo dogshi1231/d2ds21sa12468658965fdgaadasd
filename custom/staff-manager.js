@@ -21,8 +21,11 @@ class StaffManager {
 			if (!data.activity) data.activity = {};
 			return data;
 		} catch (error) {
-			this.client.log.error('Failed to load staff activity:', error);
-			return { activity: {} };
+			// Create file on first run to avoid noisy logs
+			const fallback = { activity: {} };
+			try { await fs.writeFile(this.activityPath, JSON.stringify(fallback, null, 2)); } catch {}
+			if (error?.code !== 'ENOENT') this.client.log.error('Failed to load staff activity:', error);
+			return fallback;
 		}
 	}
 
