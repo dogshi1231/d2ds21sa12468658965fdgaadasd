@@ -43,7 +43,10 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
             { name: 'create', description: 'Create a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
               { name: 'couponcode', description: 'Coupon code', type: ApplicationCommandOptionType.String, required: true },
               { name: 'couponvalue', description: 'Discount amount', type: ApplicationCommandOptionType.Number, required: true },
-              { name: 'valuetype', description: 'percentage or fixed', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'valuetype', description: 'percentage or fixed', type: ApplicationCommandOptionType.String, required: true, choices: [
+                { name: 'percentage', value: 'percentage' },
+                { name: 'fixed', value: 'fixed' },
+              ] },
               { name: 'enablestartdate', description: 'Enable start date', type: ApplicationCommandOptionType.Boolean, required: false },
               { name: 'startdate', description: 'Start date (ISO 8601)', type: ApplicationCommandOptionType.String, required: false },
               { name: 'enableenddate', description: 'Enable end date', type: ApplicationCommandOptionType.Boolean, required: false },
@@ -223,9 +226,9 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
               ...(enableEndDate && endDate ? { endDate } : {}),
               ...(enableLimit && typeof couponLimit === 'number' ? { couponLimit } : {}),
               productsAccepted: productsAccepted || {},
-              ...(bundlesAccepted ? { bundlesAccepted } : {}),
-              ...(paymentsAccepted ? { paymentsAccepted } : {}),
-              ...(disabledPaymentMethods ? { disabledPaymentMethods } : {}),
+              bundlesAccepted: bundlesAccepted || [],
+              paymentsAccepted: paymentsAccepted || [],
+              disabledPaymentMethods: disabledPaymentMethods || [],
             };
           }
 
