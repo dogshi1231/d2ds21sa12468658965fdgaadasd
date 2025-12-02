@@ -4,6 +4,17 @@
   "reportIntervalHours": 24,
   "reportTimeUTC": "00:00",
   "productCosts": {
+    "default": 5
+  },
+  "voiceChannelIds": [],
+  "generalChatIds": []
+}
+{
+  "analyticsChannelId": "1437178768752902145",
+  "inactivityNoticeChannelId": "1437175400953544734",
+  "reportIntervalHours": 24,
+  "reportTimeUTC": "00:00",
+  "productCosts": {
     "hwid spoofer": 15,
     "loader": 10,
     "loader + spoofer": 20,
