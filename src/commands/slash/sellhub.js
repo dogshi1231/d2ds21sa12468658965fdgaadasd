@@ -43,6 +43,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
             { name: 'create', description: 'Create a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
               { name: 'code', description: 'Coupon code', type: ApplicationCommandOptionType.String, required: true },
               { name: 'percent', description: 'Discount percent', type: ApplicationCommandOptionType.Integer, required: true },
+              { name: 'product_id', description: 'Attach to product (optional)', type: ApplicationCommandOptionType.String, required: false },
             ]},
             { name: 'delete', description: 'Delete a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
               { name: 'id', description: 'Coupon ID', type: ApplicationCommandOptionType.String, required: true },
@@ -171,10 +172,35 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
         if (sub === 'create') {
           const code = interaction.options.getString('code', true);
           const percent = interaction.options.getInteger('percent', true);
-          const payload = { code, percent };
-          const created = await client.sellhub.createCoupon(payload);
-          await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload });
-          return interaction.editReply({ content: `✅ Coupon ${code} (${percent}% off) created.` });
+          const productId = interaction.options.getString('product_id', false) || undefined;
+
+          const base = { code };
+          if (productId) base.productId = productId;
+
+          const variants = [
+            { ...base, percent },
+            { ...base, discount: percent, type: 'percent' },
+            { ...base, percentage: percent },
+          ];
+
+          let created = null, lastErr = null, usedIndex = -1;
+          for (let i = 0; i < variants.length; i++) {
+            try {
+              created = await client.sellhub.createCoupon(variants[i]);
+              usedIndex = i; break;
+            } catch (e) {
+              lastErr = e;
+              if (!(e?.status === 400 || e?.status === 422)) break;
+            }
+          }
+
+          if (!created) {
+            const details = lastErr?.data ? `\nDetails: ${'```'}json\n${JSON.stringify(lastErr.data, null, 2)}\n${'```'}` : '';
+            return interaction.editReply({ content: `❌ Failed to create coupon: ${lastErr?.message || 'Invalid request body.'}${details}` });
+          }
+
+          await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload: variants[usedIndex], variantIndex: usedIndex });
+          return interaction.editReply({ content: `✅ Coupon ${code} (${percent}% off) created.${productId ? ` (product ${productId})` : ''}` });
         }
         if (sub === 'delete') {
           const id = interaction.options.getString('id', true);
