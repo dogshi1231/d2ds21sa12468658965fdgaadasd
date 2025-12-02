@@ -128,4 +128,24 @@ try {
 // start the bot and then the web server
 client.login().then(() => {
 	http(client);
+
+	// Auto-publish slash commands on headless hosts (Railgun/Railway)
+	(async () => {
+		if (process.env.PUBLISH_COMMANDS_ON_START === '1') {
+			try {
+				if (client.commands?.publish) {
+					const res = await client.commands.publish();
+					log.info(`Published slash commands${res?.size ? ` (${res.size})` : ''}`);
+				} else if (client.application?.commands) {
+					const defs = client.commands?.commands
+						?.map(c => c.data?.toJSON?.() ?? c.data)
+						?.filter(Boolean) ?? [];
+					await client.application.commands.set(defs);
+					log.info(`Published slash commands via Discord API (${defs.length})`);
+				}
+			} catch (err) {
+				log.error('Slash command publish failed:', err);
+			}
+		}
+	})();
 });
