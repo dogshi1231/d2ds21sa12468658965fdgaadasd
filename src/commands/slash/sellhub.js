@@ -54,6 +54,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
               { name: 'bundlesaccepted_json', description: 'Bundle IDs array JSON', type: ApplicationCommandOptionType.String, required: false },
               { name: 'paymentsaccepted_json', description: 'Valid payment methods array JSON', type: ApplicationCommandOptionType.String, required: false },
               { name: 'disabledpaymentmethods_json', description: 'Blocked payment methods array JSON', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'raw_json', description: 'Full raw JSON payload override', type: ApplicationCommandOptionType.String, required: false },
             ]},
             { name: 'delete', description: 'Delete a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
               { name: 'id', description: 'Coupon ID', type: ApplicationCommandOptionType.String, required: true },
@@ -195,6 +196,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           const bundlesAcceptedJson = interaction.options.getString('bundlesaccepted_json', false) || undefined;
           const paymentsAcceptedJson = interaction.options.getString('paymentsaccepted_json', false) || undefined;
           const disabledPaymentMethodsJson = interaction.options.getString('disabledpaymentmethods_json', false) || undefined;
+          const rawJson = interaction.options.getString('raw_json', false) || undefined;
 
           let productsAccepted, bundlesAccepted, paymentsAccepted, disabledPaymentMethods;
           try { if (productsAcceptedJson) productsAccepted = JSON.parse(productsAcceptedJson); } catch { return interaction.editReply('Invalid productsaccepted_json. Provide valid JSON.'); }
@@ -202,26 +204,32 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           try { if (paymentsAcceptedJson) paymentsAccepted = JSON.parse(paymentsAcceptedJson); } catch { return interaction.editReply('Invalid paymentsaccepted_json. Provide valid JSON.'); }
           try { if (disabledPaymentMethodsJson) disabledPaymentMethods = JSON.parse(disabledPaymentMethodsJson); } catch { return interaction.editReply('Invalid disabledpaymentmethods_json. Provide valid JSON.'); }
 
-          const payload = {
-            couponCode,
-            couponValue,
-            valueType,
-            ...(enableStartDate && startDate ? { enableStartDate: true, startDate } : {}),
-            ...(enableEndDate && endDate ? { enableEndDate: true, endDate } : {}),
-            ...(enableLimit && typeof couponLimit === 'number' ? { enableLimit: true, couponLimit } : {}),
-            ...(productsAccepted ? { productsAccepted } : {}),
-            ...(bundlesAccepted ? { bundlesAccepted } : {}),
-            ...(paymentsAccepted ? { paymentsAccepted } : {}),
-            ...(disabledPaymentMethods ? { disabledPaymentMethods } : {}),
-          };
+          let payload;
+          if (rawJson) {
+            try { payload = JSON.parse(rawJson); } catch { return interaction.editReply('Invalid raw_json. Provide valid JSON.'); }
+          } else {
+            payload = {
+              couponCode,
+              couponValue,
+              valueType,
+              ...(enableStartDate && startDate ? { enableStartDate: true, startDate } : {}),
+              ...(enableEndDate && endDate ? { enableEndDate: true, endDate } : {}),
+              ...(enableLimit && typeof couponLimit === 'number' ? { enableLimit: true, couponLimit } : {}),
+              ...(productsAccepted ? { productsAccepted } : {}),
+              ...(bundlesAccepted ? { bundlesAccepted } : {}),
+              ...(paymentsAccepted ? { paymentsAccepted } : {}),
+              ...(disabledPaymentMethods ? { disabledPaymentMethods } : {}),
+            };
+          }
 
           try {
             const created = await client.sellhub.createCoupon(payload);
             await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload });
-            return interaction.editReply({ content: `✅ Coupon ${couponCode} created (${valueType} ${couponValue}).` });
+            return interaction.editReply({ content: `✅ Coupon ${payload.couponCode || couponCode} created (${payload.valueType || valueType} ${payload.couponValue || couponValue}).` });
           } catch (e) {
             const details = e?.data ? `\nDetails: ${'```'}json\n${JSON.stringify(e.data, null, 2)}\n${'```'}` : '';
-            return interaction.editReply({ content: `❌ Failed to create coupon: ${e?.message || 'Invalid request body.'}${details}` });
+            const pl = `\nPayload: ${'```'}json\n${JSON.stringify(payload, null, 2)}\n${'```'}`;
+            return interaction.editReply({ content: `❌ Failed to create coupon: ${e?.message || 'Invalid request body.'}${details}${pl}` });
           }
         }
         if (sub === 'delete') {
