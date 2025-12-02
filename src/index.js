@@ -105,7 +105,7 @@ try {
 // DNS preflight for Sellhub base to surface resolver issues early
 (async () => {
 	try {
-		const base = (process.env.SELLHUB_API_BASE || 'https://api.sellhub.app/v1').trim();
+		const base = (process.env.SELLHUB_API_BASE || 'https://dash.sellhub.cx/api/sellhub').trim();
 		const host = new URL(base).hostname;
 		const a = await dnsPromises.resolve(host);
 		log.info(`[DNS] ${host} -> ${Array.isArray(a) ? a.join(', ') : String(a)}`);

@@ -1,7 +1,7 @@
 // Node 18+ provides a global fetch; no external dependency required
 
 class SellhubAPI {
-  constructor(apiKey, { baseUrl = 'https://api.sellhub.app/v1', timeout = 15000, authScheme = 'auto' } = {}) {
+  constructor(apiKey, { baseUrl = 'https://dash.sellhub.cx/api/sellhub', timeout = 15000, authScheme = 'auto' } = {}) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.timeout = timeout;
