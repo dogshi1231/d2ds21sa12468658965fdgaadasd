@@ -207,6 +207,13 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           try { if (paymentsAcceptedJson) paymentsAccepted = JSON.parse(paymentsAcceptedJson); } catch { return interaction.editReply('Invalid paymentsaccepted_json. Provide valid JSON.'); }
           try { if (disabledPaymentMethodsJson) disabledPaymentMethods = JSON.parse(disabledPaymentMethodsJson); } catch { return interaction.editReply('Invalid disabledpaymentmethods_json. Provide valid JSON.'); }
 
+          // Defaults required by API even when flags disabled
+          const defaultStart = '1970-01-01T00:00:00Z';
+          const defaultEnd = '2099-12-31T23:59:59Z';
+          const resolvedStartDate = startDate || defaultStart;
+          const resolvedEndDate = endDate || defaultEnd;
+          const resolvedCouponLimit = typeof couponLimit === 'number' ? couponLimit : 0;
+
           let payload;
           if (rawJson) {
             try { payload = JSON.parse(rawJson); } catch { return interaction.editReply('Invalid raw_json. Provide valid JSON.'); }
@@ -222,9 +229,10 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
               enableStartDate: !!enableStartDate,
               enableEndDate: !!enableEndDate,
               enableLimit: !!enableLimit,
-              ...(enableStartDate && startDate ? { startDate } : {}),
-              ...(enableEndDate && endDate ? { endDate } : {}),
-              ...(enableLimit && typeof couponLimit === 'number' ? { couponLimit } : {}),
+              // API requires these fields even when enable* flags are false
+              startDate: resolvedStartDate,
+              endDate: resolvedEndDate,
+              couponLimit: resolvedCouponLimit,
               productsAccepted: productsAccepted || {},
               bundlesAccepted: bundlesAccepted || [],
               paymentsAccepted: paymentsAccepted || [],
