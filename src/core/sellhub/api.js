@@ -126,15 +126,9 @@ class SellhubAPI {
   getCategories() { return this._get('/categories'); }
 
   // Coupons
-  getCoupons() {
-    return this._tryPaths('GET', ['/coupons', '/coupon', '/discounts', '/v1/coupons']);
-  }
-  createCoupon(payload) {
-    return this._tryPaths('POST', ['/coupons', '/coupon', '/discounts', '/v1/coupons'], payload);
-  }
-  deleteCoupon(id) {
-    return this._tryPaths('DELETE', [`/coupons/${id}`, `/coupon/${id}`, `/discounts/${id}`, `/v1/coupons/${id}`]);
-  }
+  getCoupons(query = {}) { return this._get(`/products/coupons${this._query(query)}`); }
+  createCoupon(payload) { return this._post('/products/coupons', payload); }
+  deleteCoupon(id) { return this._delete(`/products/coupons/${id}`); }
 
   // Groups
   getGroups() { return this._get('/groups'); }
