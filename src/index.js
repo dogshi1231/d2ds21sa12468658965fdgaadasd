@@ -91,7 +91,13 @@ try {
 			dns.setServers(servers);
 			log.info('DNS servers set: ' + servers.join(', '));
 		}
+	} else {
+		// Default to common public resolvers if not specified
+		dns.setServers(['8.8.8.8', '1.1.1.1']);
+		log.info('DNS servers set (default): 8.8.8.8, 1.1.1.1');
 	}
+	// Prefer IPv4 when dual-stack results are returned
+	if (dns.setDefaultResultOrder) dns.setDefaultResultOrder('ipv4first');
 } catch (e) {
 	log.warn('Failed to set DNS servers: ' + (e?.message || String(e)));
 }
