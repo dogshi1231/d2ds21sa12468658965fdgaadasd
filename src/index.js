@@ -114,9 +114,12 @@ try {
 
 	// Do not override custom analytics (used by listeners); expose core as analyticsEngine
 	client.analyticsEngine = new AnalyticsEngine({ client, db });
-	const SELLHUB_API_KEY = process.env.SELLHUB_API_KEY || process.env.SELLHUB_KEY;
+	const SELLHUB_API_KEY = (process.env.SELLHUB_API_KEY || process.env.SELLHUB_KEY || '').trim();
+	const SELLHUB_API_BASE = (process.env.SELLHUB_API_BASE || '').trim();
 	if (SELLHUB_API_KEY) {
-		client.sellhub = new SellhubAPI(SELLHUB_API_KEY);
+		const options = {};
+		if (SELLHUB_API_BASE) options.baseUrl = SELLHUB_API_BASE;
+		client.sellhub = new SellhubAPI(SELLHUB_API_KEY, options);
 		log.info('Sellhub API initialized');
 	} else {
 		log.debug('SELLHUB_KEY not set; Sellhub API disabled');

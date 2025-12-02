@@ -1,36 +1,46 @@
 // Node 18+ provides a global fetch; no external dependency required
 
 class SellhubAPI {
-  constructor(apiKey, { baseUrl = 'https://api.sellhub.io', timeout = 15000 } = {}) {
+  constructor(apiKey, { baseUrl = 'https://api.sellhub.app/v1', timeout = 15000, authScheme = 'auto' } = {}) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.timeout = timeout;
+    // authScheme: 'auto' | 'raw' | 'bearer'
+    this.authScheme = authScheme;
   }
 
-  headers() {
-    return {
-      'Authorization': this.apiKey, // Sellhub expects raw key, no Bearer/Basic prefix
+  _headersForScheme(scheme) {
+    const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
+    if (scheme === 'bearer') headers['Authorization'] = `Bearer ${this.apiKey}`;
+    else headers['Authorization'] = this.apiKey; // default raw
+    return headers;
+  }
+
+  async _fetch(method, path, body, scheme) {
+    const url = `${this.baseUrl}${path}`;
+    const opts = { method, headers: this._headersForScheme(scheme) };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    let json; try { json = await res.json(); } catch { json = null; }
+    return { res, json, url };
   }
 
   async _request(method, path, body) {
-    const url = `${this.baseUrl}${path}`;
-    const opts = {
-      method,
-      headers: this.headers(),
-    };
-    if (body !== undefined) opts.body = JSON.stringify(body);
-    const res = await fetch(url, opts);
-    let json;
-    try { json = await res.json(); } catch { json = null; }
-    if (!res.ok) {
-      const message = (json && (json.message || json.error)) || `HTTP ${res.status}`;
-      const err = new Error(`Sellhub ${method} ${path} failed: ${message}`);
-      err.status = res.status; err.data = json; err.url = url; throw err;
+    const trySchemes = this.authScheme === 'bearer' ? ['bearer'] : this.authScheme === 'raw' ? ['raw'] : ['raw', 'bearer'];
+    let last;
+    for (const scheme of trySchemes) {
+      const { res, json, url } = await this._fetch(method, path, body, scheme);
+      if (res.ok) return json;
+      last = { res, json, url, scheme };
+      if (!(res.status === 401 || res.status === 403)) break; // only retry auth errors
     }
-    return json;
+    const { res, json, url, scheme } = last || {};
+    const message = (json && (json.message || json.error)) || (res ? `HTTP ${res.status}` : 'Request failed');
+    const err = new Error(`Sellhub ${method} ${path} failed: ${message}`);
+    if (res) err.status = res.status; err.data = json; err.url = url; err.scheme = scheme; throw err;
   }
 
   _get(path) { return this._request('GET', path); }

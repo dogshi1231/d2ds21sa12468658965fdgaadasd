@@ -267,17 +267,17 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
       // TEST
       if (!group && sub === 'test') {
         try {
-          const details = (client.sellhub.getStoreDetails ? await client.sellhub.getStoreDetails() : await client.sellhub.getStore()) || {};
+          const res = await client.sellhub.getInvoices({ limit: 1 });
+          const count = Array.isArray(res?.data) ? res.data.length : (Array.isArray(res) ? res.length : 0);
           const embed = new EmbedBuilder()
             .setColor(0x2ECC71)
             .setTitle('Sellhub API Key: OK')
             .addFields(
-              ...(details.name ? [{ name: 'Store', value: String(details.name), inline: true }] : []),
-              ...(details.domain ? [{ name: 'Domain', value: String(details.domain), inline: true }] : []),
-              ...(details.plan ? [{ name: 'Plan', value: String(details.plan), inline: true }] : []),
+              { name: 'Endpoint', value: 'GET /invoices?limit=1', inline: true },
+              { name: 'Items', value: String(count), inline: true },
             )
             .setTimestamp();
-          await logSellhubEvent(client, 'API Key Test', interaction.user, { info: details });
+          await logSellhubEvent(client, 'API Key Test', interaction.user, { endpoint: '/invoices?limit=1', ok: true });
           return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         } catch (e) {
           await logSellhubEvent(client, 'API Key Test Failed', interaction.user, { error: e?.message || String(e) }, true);
