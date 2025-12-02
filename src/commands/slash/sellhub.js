@@ -41,9 +41,19 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           options: [
             { name: 'list', description: 'List coupons', type: ApplicationCommandOptionType.Subcommand },
             { name: 'create', description: 'Create a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'code', description: 'Coupon code', type: ApplicationCommandOptionType.String, required: true },
-              { name: 'percent', description: 'Discount percent', type: ApplicationCommandOptionType.Integer, required: true },
-              { name: 'product_id', description: 'Attach to product (optional)', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'couponcode', description: 'Coupon code', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'couponvalue', description: 'Discount amount', type: ApplicationCommandOptionType.Number, required: true },
+              { name: 'valuetype', description: 'percentage or fixed', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'enablestartdate', description: 'Enable start date', type: ApplicationCommandOptionType.Boolean, required: false },
+              { name: 'startdate', description: 'Start date (ISO 8601)', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'enableenddate', description: 'Enable end date', type: ApplicationCommandOptionType.Boolean, required: false },
+              { name: 'enddate', description: 'End date (ISO 8601)', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'enablelimit', description: 'Enable usage limit', type: ApplicationCommandOptionType.Boolean, required: false },
+              { name: 'couponlimit', description: 'Usage limit number', type: ApplicationCommandOptionType.Integer, required: false },
+              { name: 'productsaccepted_json', description: 'Products/variants mapping JSON', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'bundlesaccepted_json', description: 'Bundle IDs array JSON', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'paymentsaccepted_json', description: 'Valid payment methods array JSON', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'disabledpaymentmethods_json', description: 'Blocked payment methods array JSON', type: ApplicationCommandOptionType.String, required: false },
             ]},
             { name: 'delete', description: 'Delete a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
               { name: 'id', description: 'Coupon ID', type: ApplicationCommandOptionType.String, required: true },
@@ -170,37 +180,49 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           return interaction.editReply({ embeds: [embed] });
         }
         if (sub === 'create') {
-          const code = interaction.options.getString('code', true);
-          const percent = interaction.options.getInteger('percent', true);
-          const productId = interaction.options.getString('product_id', false) || undefined;
+          const couponCode = interaction.options.getString('couponcode', true);
+          const couponValue = interaction.options.getNumber('couponvalue', true);
+          const valueType = interaction.options.getString('valuetype', true);
 
-          const base = { code };
-          if (productId) base.productId = productId;
+          const enableStartDate = interaction.options.getBoolean('enablestartdate', false) || false;
+          const startDate = interaction.options.getString('startdate', false) || undefined;
+          const enableEndDate = interaction.options.getBoolean('enableenddate', false) || false;
+          const endDate = interaction.options.getString('enddate', false) || undefined;
+          const enableLimit = interaction.options.getBoolean('enablelimit', false) || false;
+          const couponLimit = interaction.options.getInteger('couponlimit', false) || undefined;
 
-          const variants = [
-            { ...base, percent },
-            { ...base, discount: percent, type: 'percent' },
-            { ...base, percentage: percent },
-          ];
+          const productsAcceptedJson = interaction.options.getString('productsaccepted_json', false) || undefined;
+          const bundlesAcceptedJson = interaction.options.getString('bundlesaccepted_json', false) || undefined;
+          const paymentsAcceptedJson = interaction.options.getString('paymentsaccepted_json', false) || undefined;
+          const disabledPaymentMethodsJson = interaction.options.getString('disabledpaymentmethods_json', false) || undefined;
 
-          let created = null, lastErr = null, usedIndex = -1;
-          for (let i = 0; i < variants.length; i++) {
-            try {
-              created = await client.sellhub.createCoupon(variants[i]);
-              usedIndex = i; break;
-            } catch (e) {
-              lastErr = e;
-              if (!(e?.status === 400 || e?.status === 422)) break;
-            }
+          let productsAccepted, bundlesAccepted, paymentsAccepted, disabledPaymentMethods;
+          try { if (productsAcceptedJson) productsAccepted = JSON.parse(productsAcceptedJson); } catch { return interaction.editReply('Invalid productsaccepted_json. Provide valid JSON.'); }
+          try { if (bundlesAcceptedJson) bundlesAccepted = JSON.parse(bundlesAcceptedJson); } catch { return interaction.editReply('Invalid bundlesaccepted_json. Provide valid JSON.'); }
+          try { if (paymentsAcceptedJson) paymentsAccepted = JSON.parse(paymentsAcceptedJson); } catch { return interaction.editReply('Invalid paymentsaccepted_json. Provide valid JSON.'); }
+          try { if (disabledPaymentMethodsJson) disabledPaymentMethods = JSON.parse(disabledPaymentMethodsJson); } catch { return interaction.editReply('Invalid disabledpaymentmethods_json. Provide valid JSON.'); }
+
+          const payload = {
+            couponCode,
+            couponValue,
+            valueType,
+            ...(enableStartDate && startDate ? { enableStartDate: true, startDate } : {}),
+            ...(enableEndDate && endDate ? { enableEndDate: true, endDate } : {}),
+            ...(enableLimit && typeof couponLimit === 'number' ? { enableLimit: true, couponLimit } : {}),
+            ...(productsAccepted ? { productsAccepted } : {}),
+            ...(bundlesAccepted ? { bundlesAccepted } : {}),
+            ...(paymentsAccepted ? { paymentsAccepted } : {}),
+            ...(disabledPaymentMethods ? { disabledPaymentMethods } : {}),
+          };
+
+          try {
+            const created = await client.sellhub.createCoupon(payload);
+            await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload });
+            return interaction.editReply({ content: `✅ Coupon ${couponCode} created (${valueType} ${couponValue}).` });
+          } catch (e) {
+            const details = e?.data ? `\nDetails: ${'```'}json\n${JSON.stringify(e.data, null, 2)}\n${'```'}` : '';
+            return interaction.editReply({ content: `❌ Failed to create coupon: ${e?.message || 'Invalid request body.'}${details}` });
           }
-
-          if (!created) {
-            const details = lastErr?.data ? `\nDetails: ${'```'}json\n${JSON.stringify(lastErr.data, null, 2)}\n${'```'}` : '';
-            return interaction.editReply({ content: `❌ Failed to create coupon: ${lastErr?.message || 'Invalid request body.'}${details}` });
-          }
-
-          await logSellhubEvent(client, 'Coupon Created', interaction.user, { id: created?.id, payload: variants[usedIndex], variantIndex: usedIndex });
-          return interaction.editReply({ content: `✅ Coupon ${code} (${percent}% off) created.${productId ? ` (product ${productId})` : ''}` });
         }
         if (sub === 'delete') {
           const id = interaction.options.getString('id', true);
