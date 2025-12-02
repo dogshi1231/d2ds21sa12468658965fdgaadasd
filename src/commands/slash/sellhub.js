@@ -14,67 +14,79 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
       options: [
         // Products
         {
-          name: 'products', type: ApplicationCommandOptionType.SubcommandGroup, options: [
-            { name: 'list', type: ApplicationCommandOptionType.Subcommand },
-            { name: 'create', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'name', type: ApplicationCommandOptionType.String, required: true },
-              { name: 'price', type: ApplicationCommandOptionType.Number, required: true },
+          name: 'products',
+          description: 'Manage products',
+          type: ApplicationCommandOptionType.SubcommandGroup,
+          options: [
+            { name: 'list', description: 'List products', type: ApplicationCommandOptionType.Subcommand },
+            { name: 'create', description: 'Create a product', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'name', description: 'Product name', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'price', description: 'Price (USD)', type: ApplicationCommandOptionType.Number, required: true },
             ]},
-            { name: 'delete', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'id', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'delete', description: 'Delete a product', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'id', description: 'Product ID', type: ApplicationCommandOptionType.String, required: true },
             ]},
-            { name: 'update', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'id', type: ApplicationCommandOptionType.String, required: true },
-              { name: 'name', type: ApplicationCommandOptionType.String, required: false },
-              { name: 'price', type: ApplicationCommandOptionType.Number, required: false },
+            { name: 'update', description: 'Update a product', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'id', description: 'Product ID', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'name', description: 'New name', type: ApplicationCommandOptionType.String, required: false },
+              { name: 'price', description: 'New price (USD)', type: ApplicationCommandOptionType.Number, required: false },
             ]},
           ],
         },
         // Coupons
         {
-          name: 'coupons', type: ApplicationCommandOptionType.SubcommandGroup, options: [
-            { name: 'list', type: ApplicationCommandOptionType.Subcommand },
-            { name: 'create', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'code', type: ApplicationCommandOptionType.String, required: true },
-              { name: 'percent', type: ApplicationCommandOptionType.Integer, required: true },
+          name: 'coupons',
+          description: 'Manage coupons',
+          type: ApplicationCommandOptionType.SubcommandGroup,
+          options: [
+            { name: 'list', description: 'List coupons', type: ApplicationCommandOptionType.Subcommand },
+            { name: 'create', description: 'Create a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'code', description: 'Coupon code', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'percent', description: 'Discount percent', type: ApplicationCommandOptionType.Integer, required: true },
             ]},
-            { name: 'delete', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'id', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'delete', description: 'Delete a coupon', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'id', description: 'Coupon ID', type: ApplicationCommandOptionType.String, required: true },
             ]},
           ],
         },
         // Variants
         {
-          name: 'variants', type: ApplicationCommandOptionType.SubcommandGroup, options: [
-            { name: 'list', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'product_id', type: ApplicationCommandOptionType.String, required: true },
+          name: 'variants',
+          description: 'Manage product variants',
+          type: ApplicationCommandOptionType.SubcommandGroup,
+          options: [
+            { name: 'list', description: 'List variants for a product', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'product_id', description: 'Product ID', type: ApplicationCommandOptionType.String, required: true },
             ]},
-            { name: 'restock', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'variant_id', type: ApplicationCommandOptionType.String, required: true },
-              { name: 'quantity', type: ApplicationCommandOptionType.Integer, required: true },
+            { name: 'restock', description: 'Add stock to a variant', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'variant_id', description: 'Variant ID', type: ApplicationCommandOptionType.String, required: true },
+              { name: 'quantity', description: 'Quantity to add', type: ApplicationCommandOptionType.Integer, required: true },
             ]},
-            { name: 'remove', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'variant_id', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'remove', description: 'Remove all stock from a variant', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'variant_id', description: 'Variant ID', type: ApplicationCommandOptionType.String, required: true },
             ]},
-            { name: 'delete', type: ApplicationCommandOptionType.Subcommand, options: [
-              { name: 'variant_id', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'delete', description: 'Delete a variant', type: ApplicationCommandOptionType.Subcommand, options: [
+              { name: 'variant_id', description: 'Variant ID', type: ApplicationCommandOptionType.String, required: true },
             ]},
           ],
         },
         // Invoices (orders)
         {
-          name: 'invoices', type: ApplicationCommandOptionType.Subcommand, options: [
-            { name: 'limit', type: ApplicationCommandOptionType.Integer, required: false },
+          name: 'invoices',
+          description: 'List recent invoices',
+          type: ApplicationCommandOptionType.Subcommand,
+          options: [
+            { name: 'limit', description: 'Max invoices to show', type: ApplicationCommandOptionType.Integer, required: false },
           ],
         },
-        { name: 'invoice', type: ApplicationCommandOptionType.SubcommandGroup, options: [
-          { name: 'refund', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true } ] },
-          { name: 'replace', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true }, { name: 'items_json', type: ApplicationCommandOptionType.String, required: true } ] },
-          { name: 'complete', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true } ] },
+        { name: 'invoice', description: 'Invoice actions', type: ApplicationCommandOptionType.SubcommandGroup, options: [
+          { name: 'refund', description: 'Refund an invoice', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Invoice ID', type: ApplicationCommandOptionType.String, required: true } ] },
+          { name: 'replace', description: 'Replace items on an invoice', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Invoice ID', type: ApplicationCommandOptionType.String, required: true }, { name: 'items_json', description: 'Items JSON payload', type: ApplicationCommandOptionType.String, required: true } ] },
+          { name: 'complete', description: 'Mark an invoice as complete', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Invoice ID', type: ApplicationCommandOptionType.String, required: true } ] },
         ]},
         // Customers
-        { name: 'customers', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'limit', type: ApplicationCommandOptionType.Integer, required: false } ] },
-        { name: 'customer', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', type: ApplicationCommandOptionType.String, required: true } ] },
+        { name: 'customers', description: 'List customers', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'limit', description: 'Max customers to show', type: ApplicationCommandOptionType.Integer, required: false } ] },
+        { name: 'customer', description: 'Get a customer by ID', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Customer ID', type: ApplicationCommandOptionType.String, required: true } ] },
       ],
     });
   }

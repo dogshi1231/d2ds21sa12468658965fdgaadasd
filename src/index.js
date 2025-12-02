@@ -112,7 +112,8 @@ try {
 	const { SellhubAPI } = require('./core/sellhub/api');
 	const db = require('./core/database');
 
-	client.analytics = new AnalyticsEngine({ client, db });
+	// Do not override custom analytics (used by listeners); expose core as analyticsEngine
+	client.analyticsEngine = new AnalyticsEngine({ client, db });
 	const SELLHUB_API_KEY = process.env.SELLHUB_API_KEY || process.env.SELLHUB_KEY;
 	if (SELLHUB_API_KEY) {
 		client.sellhub = new SellhubAPI(SELLHUB_API_KEY);
