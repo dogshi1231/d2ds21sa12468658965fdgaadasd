@@ -26,8 +26,7 @@ class Analytics {
 		try {
 			return JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
 		} catch (error) {
-			if (error?.code !== 'ENOENT') this.client.log.error('Failed to load analytics config:', error);
-			return {
+			const defaults = {
 				analyticsChannelId: '1437178768752902145',
 				inactivityNoticeChannelId: '1437175400953544734',
 				reportIntervalHours: 24,
@@ -36,6 +35,18 @@ class Analytics {
 				voiceChannelIds: [],
 				generalChatIds: [],
 			};
+			if (error?.code === 'ENOENT') return defaults;
+			// If file exists but is malformed, back it up and rewrite defaults
+			try {
+				const bad = fs.readFileSync(this.configPath, 'utf8');
+				const backupPath = this.configPath + '.bak';
+				fs.writeFileSync(backupPath, bad);
+				fs.writeFileSync(this.configPath, JSON.stringify(defaults, null, 2));
+				this.client?.log?.warn?.('analytics-config.json was invalid; backed up and reset to defaults.');
+			} catch (e) {
+				this.client?.log?.error?.('Failed to repair analytics-config.json:', e);
+			}
+			return defaults;
 		}
 	}
 

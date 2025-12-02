@@ -175,14 +175,52 @@ client.login().then(() => {
 					const res = await client.commands.publish();
 					log.info(`Published slash commands${res?.size ? ` (${res.size})` : ''}`);
 				} else if (client.application?.commands) {
-					const defs = client.commands?.commands
+					let defs = client.commands?.commands
 						?.map(c => c.data?.toJSON?.() ?? c.data)
 						?.filter(Boolean) ?? [];
+
+					// Sanitize and inspect unexpected fields that Discord may reject
+					const stripKeys = ['oauth2_install_params', 'install_params', 'redirect_uris'];
+					defs = defs.map(d => {
+						try {
+							const clone = JSON.parse(JSON.stringify(d));
+							for (const k of stripKeys) if (k in clone) delete clone[k];
+							return clone;
+						} catch { return d; }
+					});
+					// Log any suspicious keys (without blocking)
+					for (const d of defs) {
+						if (d && (d.redirect_uris || d.oauth2_install_params || d.install_params)) {
+							log.warn(`Command ${d.name} contains install-related fields that will be stripped before publish.`);
+						}
+					}
 					await client.application.commands.set(defs);
 					log.info(`Published slash commands via Discord API (${defs.length})`);
 				}
 			} catch (err) {
 				log.error('Slash command publish failed:', err);
+				// Fallback: publish commands individually to isolate the culprit
+				try {
+					let defs = client.commands?.commands
+						?.map(c => c.data?.toJSON?.() ?? c.data)
+						?.filter(Boolean) ?? [];
+					const stripKeys = ['oauth2_install_params', 'install_params', 'redirect_uris'];
+					for (const def of defs) {
+						let clean = def;
+						try {
+							clean = JSON.parse(JSON.stringify(def));
+							for (const k of stripKeys) if (k in clean) delete clean[k];
+						} catch {}
+						try {
+							await client.application.commands.create(clean);
+							log.info(`Published command: ${clean?.name || '(unknown)'}`);
+						} catch (e) {
+							log.error(`Failed to publish command ${clean?.name || '(unknown)'}:`, e?.rawError || e?.message || e);
+						}
+					}
+				} catch (e2) {
+					log.error('Per-command publish fallback also failed:', e2);
+				}
 			}
 		}
 	})();
