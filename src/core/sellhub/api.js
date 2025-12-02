@@ -9,7 +9,7 @@ class SellhubAPI {
 
   headers() {
     return {
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorization': this.apiKey, // Sellhub expects raw key, no Bearer/Basic prefix
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };

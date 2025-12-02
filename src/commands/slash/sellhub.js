@@ -87,6 +87,7 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
         // Customers
         { name: 'customers', description: 'List customers', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'limit', description: 'Max customers to show', type: ApplicationCommandOptionType.Integer, required: false } ] },
         { name: 'customer', description: 'Get a customer by ID', type: ApplicationCommandOptionType.Subcommand, options: [ { name: 'id', description: 'Customer ID', type: ApplicationCommandOptionType.String, required: true } ] },
+        { name: 'test', description: 'Verify API key and show store info', type: ApplicationCommandOptionType.Subcommand },
       ],
     });
   }
@@ -261,6 +262,29 @@ module.exports = class SellhubSlashCommand extends SlashCommand {
           ...(c.email ? [{ name: 'Email', value: String(c.email), inline: true }] : []),
         );
         return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+
+      // TEST
+      if (!group && sub === 'test') {
+        try {
+          const details = (client.sellhub.getStoreDetails ? await client.sellhub.getStoreDetails() : await client.sellhub.getStore()) || {};
+          const embed = new EmbedBuilder()
+            .setColor(0x2ECC71)
+            .setTitle('Sellhub API Key: OK')
+            .addFields(
+              ...(details.name ? [{ name: 'Store', value: String(details.name), inline: true }] : []),
+              ...(details.domain ? [{ name: 'Domain', value: String(details.domain), inline: true }] : []),
+              ...(details.plan ? [{ name: 'Plan', value: String(details.plan), inline: true }] : []),
+            )
+            .setTimestamp();
+          await logSellhubEvent(client, 'API Key Test', interaction.user, { info: details });
+          return interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+          await logSellhubEvent(client, 'API Key Test Failed', interaction.user, { error: e?.message || String(e) }, true);
+          const code = e?.status;
+          const msg = code === 401 || code === 403 ? 'Unauthorized: Check API key format/value' : (e?.data?.message || e?.message || 'Failed');
+          return interaction.editReply({ content: '❌ ' + msg, flags: MessageFlags.Ephemeral });
+        }
       }
 
       return interaction.editReply('Unknown subcommand.');
