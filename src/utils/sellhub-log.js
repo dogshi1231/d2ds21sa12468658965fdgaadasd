@@ -1,9 +1,21 @@
 const { EmbedBuilder } = require('discord.js');
-
-const LOG_CHANNEL_ID = '1437223214534361098';
+const path = require('path');
+const fs = require('fs');
 
 async function logSellhubEvent(client, title, user, details = {}, isError = false) {
   try {
+    // Load config
+    const configPath = path.join(__dirname, '../../custom/server-config.json');
+    let LOG_CHANNEL_ID = '1423174433857605763'; // fallback
+    if (fs.existsSync(configPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        LOG_CHANNEL_ID = config.channels.sellhubLogChannelId || LOG_CHANNEL_ID;
+      } catch (e) {
+        // use fallback
+      }
+    }
+
     const channel = await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
     if (!channel || !channel.isTextBased()) return false;
 

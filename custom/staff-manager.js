@@ -81,7 +81,11 @@ class StaffManager {
 				warningLimit: 3,
 				warningExpiryDays: 30,
 				checkIntervalHours: 6,
-				staffRoleIds: [],
+				staffRoleIds: [
+					"1375292697358897189",
+					"1375292697371476112",
+					"1375292697358897185",
+				],
 			};
 		}
 	}

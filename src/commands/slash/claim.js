@@ -36,9 +36,9 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 			// ===== CONFIGURATION =====
 			const configPath = path.join(__dirname, '../../../custom/claim-config.json');
 			let config = {
-				ordersChannelId: '1234567890123456789',
-				buyerRoleId: '1234567890123456789',
-				modLogChannelId: '1234567890123456789',
+				ordersChannelId: '1423136852780646500',
+				buyerRoleId: '1375292697337659402',
+				modLogChannelId: '1447773797502423202',
 				messageSearchLimit: 25,
 			};
 			

@@ -1,0 +1,22 @@
+{
+  "serverId": "1375292697321148508",
+  "channels": {
+    "ordersChannelId": "1423136852780646500",
+    "orderChannelIds": ["1423148244954906735"],
+    "modLogChannelId": "1447773797502423202",
+    "supportChannelId": "1375292699564839132",
+    "logChannel": "1423174433857605763",
+    "archiveChannelId": "1371320221469511744",
+    "sellhubLogChannelId": "1423174433857605763",
+    "analyticsChannelId": "1423148244954906735",
+    "inactivityNoticeChannelId": "1375292699204259843"
+  },
+  "roles": {
+    "buyerRoleId": "1375292697337659402",
+    "staffRoleIds": [
+      "1375292697358897189",
+      "1375292697371476112",
+      "1375292697358897185"
+    ]
+  }
+}
